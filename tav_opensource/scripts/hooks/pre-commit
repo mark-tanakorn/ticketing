@@ -1,0 +1,37 @@
+#!/bin/bash
+# Git pre-commit hook - Run tests before allowing commit
+
+echo "🧪 Running pre-commit checks..."
+
+# Run backend tests
+echo "Testing backend..."
+cd backend
+python -m pytest tests/unit -q --tb=no > /dev/null 2>&1
+backend_status=$?
+
+cd ..
+
+# Run frontend tests
+echo "Testing frontend..."
+cd ui
+npm test -- --passWithNoTests --silent > /dev/null 2>&1
+frontend_status=$?
+
+cd ..
+
+# Check results
+if [ $backend_status -ne 0 ]; then
+    echo "❌ Backend tests failed. Commit rejected."
+    echo "   Run: cd backend && python tests/run_unit_tests.py"
+    exit 1
+fi
+
+if [ $frontend_status -ne 0 ]; then
+    echo "❌ Frontend tests failed. Commit rejected."
+    echo "   Run: cd ui && npm test"
+    exit 1
+fi
+
+echo "✅ All tests passed. Proceeding with commit."
+exit 0
+

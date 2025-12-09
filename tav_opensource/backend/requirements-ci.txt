@@ -1,0 +1,102 @@
+# TAV Engine - CI Testing Requirements
+# Minimal dependencies for running tests without heavy ML packages
+
+# Core web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+prometheus-client>=0.19.0
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+asyncpg>=0.29.0  # For async PostgreSQL support in tests
+
+# Production reliability
+circuitbreaker>=1.4.0
+
+# Environment and configuration
+python-dotenv>=1.0.0
+
+# CLI tools
+click>=8.1.0
+
+# Data processing and utilities
+pyyaml>=6.0.0
+requests>=2.31.0
+pymupdf>=1.16.0
+reportlab>=3.6.0
+
+# Security and encryption
+cryptography>=41.0.0
+
+# JSON schema validation
+jsonschema>=4.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+pydantic[email]
+
+# Date/time handling
+python-dateutil>=2.8.0
+
+# Async support
+aiofiles>=23.0.0
+aiohttp>=3.9.0
+httpx>=0.24.0
+httpx_aiohttp
+redis>=4.6.0
+
+# Lightweight data processing (without ML)
+numpy>=1.24.0
+pandas>=2.0.0
+
+# AI API Clients (lightweight - just API wrappers)
+openai>=1.0.0
+anthropic>=0.25.0
+
+# Basic image processing (without heavy CV)
+Pillow>=10.0.0
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.0.0
+
+# Communication APIs
+twilio>=8.10.0
+
+# Testing tools
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+
+# Code quality tools (for CI)
+black>=23.0.0
+ruff>=0.1.9
+mypy>=1.8.0
+safety>=2.3.0
+bandit>=1.7.5
+
+# Note: Heavy ML packages excluded for CI:
+# - torch (~2GB)
+# - transformers (~1GB)
+# - flair, spacy (large models)
+# - langchain ecosystem (heavy dependencies)
+# LangChain for multi-provider agent support
+langchain==0.3.27
+langchain-anthropic==0.3.19
+langchain-community==0.3.27
+langchain-core==0.3.75
+langchain-google-genai==2.1.10
+langchain-mistralai==0.2.11
+langchain-ollama==0.3.7
+langchain-openai==0.3.30
+langchain-text-splitters==0.3.9
+langcodes==3.5.0
+langdetect==1.0.9
+langsmith==0.4.14
+language_data==1.3.0
+lazy_loader==0.4
+
+# - huggingface ecosystem (only needed at runtime)
+#
+# These will be mocked in tests or only tested in integration tests
+
