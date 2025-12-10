@@ -484,30 +484,30 @@ export default function Home() {
             </div>
           </div>
           <div className="overflow-x-auto max-h-128 overflow-y-auto">
-            <table className="w-full table-auto">
+            <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>
-                  <th className="px-4 py-2 text-left">ID</th>
-                  <th className="px-4 py-2 text-left">Title</th>
-                  <th className="px-4 py-2 text-left">Description</th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('category')}>Category <span style={{ color: sortConfig.column === 'category' ? 'red' : 'grey', fontWeight: sortConfig.column === 'category' ? 'bolder' : 'normal' }}>{sortConfig.column === 'category' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('severity')}>Severity <span style={{ color: sortConfig.column === 'severity' ? 'red' : 'grey', fontWeight: sortConfig.column === 'severity' ? 'bolder' : 'normal' }}>{sortConfig.column === 'severity' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('status')}>Status <span style={{ color: sortConfig.column === 'status' ? 'red' : 'grey', fontWeight: sortConfig.column === 'status' ? 'bolder' : 'normal' }}>{sortConfig.column === 'status' ? (sortConfig.direction === 'desc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('pic')}>PIC <span style={{ color: sortConfig.column === 'pic' ? 'red' : 'grey', fontWeight: sortConfig.column === 'pic' ? 'bolder' : 'normal' }}>{sortConfig.column === 'pic' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('date_created')}>Date Created <span style={{ color: sortConfig.column === 'date_created' ? 'red' : 'grey', fontWeight: sortConfig.column === 'date_created' ? 'bolder' : 'normal' }}>{sortConfig.column === 'date_created' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left">Attachments</th>
+                  <th className="px-4 py-2 text-left w-2/22">ID</th>
+                  <th className="px-4 py-2 text-left w-3/22">Title</th>
+                  <th className="px-4 py-2 text-left w-5/22">Description</th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('category')}>Category <span style={{ color: sortConfig.column === 'category' ? 'red' : 'grey', fontWeight: sortConfig.column === 'category' ? 'bolder' : 'normal' }}>{sortConfig.column === 'category' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('severity')}>Severity <span style={{ color: sortConfig.column === 'severity' ? 'red' : 'grey', fontWeight: sortConfig.column === 'severity' ? 'bolder' : 'normal' }}>{sortConfig.column === 'severity' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('status')}>Status <span style={{ color: sortConfig.column === 'status' ? 'red' : 'grey', fontWeight: sortConfig.column === 'status' ? 'bolder' : 'normal' }}>{sortConfig.column === 'status' ? (sortConfig.direction === 'desc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('pic')}>PIC <span style={{ color: sortConfig.column === 'pic' ? 'red' : 'grey', fontWeight: sortConfig.column === 'pic' ? 'bolder' : 'normal' }}>{sortConfig.column === 'pic' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('date_created')}>Date Created <span style={{ color: sortConfig.column === 'date_created' ? 'red' : 'grey', fontWeight: sortConfig.column === 'date_created' ? 'bolder' : 'normal' }}>{sortConfig.column === 'date_created' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left w-2/22">Attachments</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAndSortedTickets.map((ticket) => (
                   <tr key={ticket.id} className="border-t">
-                    <td className="px-4 py-2">{ticket.id}</td>
-                    <td className="px-4 py-2 max-w-64 truncate">{ticket.title}</td>
-                    <td className="px-4 py-2 max-w-96 truncate" title={ticket.description}>{ticket.description}</td>
-                    <td className="px-4 py-2">{ticket.category}</td>
-                    <td className="px-4 py-2" style={{ color: getSeverityColor(ticket.severity) }}>{formatter(ticket.severity)}</td>
-                    <td className="px-4 py-2" style={{ color: getStatusColor(ticket.status) }}>{formatter(ticket.status)}</td>
-                    <td className="px-4 py-2">{(() => {
+                    <td className="px-4 py-2 truncate">{ticket.id}</td>
+                    <td className="px-4 py-2 truncate">{ticket.title}</td>
+                    <td className="px-4 py-2 truncate" title={ticket.description}>{ticket.description}</td>
+                    <td className="px-4 py-2 truncate">{ticket.category}</td>
+                    <td className="px-4 py-2 truncate" style={{ color: getSeverityColor(ticket.severity) }}>{formatter(ticket.severity)}</td>
+                    <td className="px-4 py-2 truncate" style={{ color: getStatusColor(ticket.status) }}>{formatter(ticket.status)}</td>
+                    <td className="px-4 py-2 truncate">{(() => {
                       const status = ticket.status.toLowerCase();
                       if (['closed', 'open', 'in_progress', 'in progress', 'sla_breached', 'sla breached'].includes(status)) {
                         return ticket.fixer || '';
@@ -516,7 +516,7 @@ export default function Home() {
                       }
                       return '';
                     })()}</td>
-                    <td className="px-4 py-2">{(() => {
+                    <td className="px-4 py-2 truncate">{(() => {
                       const date = new Date(ticket.date_created);
                       return date.toLocaleString('en-US', {
                         month: '2-digit',
@@ -527,7 +527,7 @@ export default function Home() {
                         hour12: false
                       });
                     })()}</td>
-                    <td className="px-4 py-2 max-w-32 truncate" title={ticket.attachment_upload || ''}>{ticket.attachment_upload || ''}</td>
+                    <td className="px-4 py-2 truncate" title={ticket.attachment_upload || ''}>{ticket.attachment_upload || ''}</td>
                   </tr>
                 ))}
               </tbody>
