@@ -21,6 +21,10 @@ const getStatusColor = (status: string) => {
     case 'open': return '#4CBB17';
     case 'in_progress':
     case 'in progress': return '#45B6FE';
+    case 'awaiting_approval':
+    case 'awaiting approval': return '#FF7800';
+    case 'approval_denied':
+    case 'approval denied': return '#E60000';
     default: return '#8884d8';
   }
 };
@@ -102,6 +106,11 @@ export default function Home() {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
+      if (sortConfig.column === 'status') {
+        const statusOrder = { 'closed': 1, 'approval_denied': 2, 'awaiting_approval': 3, 'in_progress': 4, 'open': 5 };
+        aValue = statusOrder[aValue.toLowerCase().replace(/ /g, '_') as keyof typeof statusOrder] || 99;
+        bValue = statusOrder[bValue.toLowerCase().replace(/ /g, '_') as keyof typeof statusOrder] || 99;
+      }
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -143,7 +152,7 @@ export default function Home() {
     tickets.forEach(ticket => {
       statusCount[ticket.status] = (statusCount[ticket.status] || 0) + 1;
     });
-    const statusOrder = { 'Open': 1, 'In Progress': 2, 'Closed': 3 };
+    const statusOrder = { 'Open': 1, 'In Progress': 2, 'Awaiting Approval': 3, 'Approval Denied': 4, 'Closed': 5 };
     const status = Object.entries(statusCount).map(([name, value]) => ({ name: formatter(name), value })).sort((a, b) => (statusOrder[a.name as keyof typeof statusOrder] || 99) - (statusOrder[b.name as keyof typeof statusOrder] || 99));
 
     // Monthly counts
@@ -207,7 +216,7 @@ export default function Home() {
                     <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} />
                   ))}
                 </Pie>
-                <Legend content={(props) => <CustomLegend {...props} order={['Open', 'In Progress', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-5px)' }} />
+                <Legend content={(props) => <CustomLegend {...props} order={['Open', 'In Progress', 'Awaiting Approval', 'Approval Denied', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-5px)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -255,7 +264,10 @@ export default function Home() {
                     <td className="px-4 py-2" style={{ color: getSeverityColor(ticket.severity) }}>{formatter(ticket.severity)}</td>
                     <td className="px-4 py-2" style={{ color: getStatusColor(ticket.status) }}>{formatter(ticket.status)}</td>
                     <td className="px-4 py-2">{ticket.assigned_to}</td>
-                    <td className="px-4 py-2">{new Date(ticket.date_created).toLocaleDateString()}</td>
+                    <td className="px-4 py-2">{(() => {
+                      const date = new Date(ticket.date_created);
+                      return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${(date.getFullYear() % 100).toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                    })()}</td>
                     <td className="px-4 py-2">{ticket.attachment_upload || ''}</td>
                   </tr>
                 ))}
