@@ -25,11 +25,14 @@ const getStatusColor = (status: string) => {
     case 'awaiting approval': return '#FF7800';
     case 'approval_denied':
     case 'approval denied': return '#E60000';
+    case 'sla_breached':
+    case 'sla breached': return '#8B0000';
+    
     default: return '#8884d8';
   }
 };
 
-const formatter = (name: string) => name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+const formatter = (name: string) => name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()).replace(/\bSla\b/g, 'SLA');
 
 const CustomLegend = ({ payload, order }: { payload?: readonly any[], order: string[] }) => {
   const sortedPayload = (payload || []).slice().sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value));
@@ -85,6 +88,8 @@ export default function Home() {
     attachment_upload: ''
   });
   const [message, setMessage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchColumns, setSearchColumns] = useState<string[]>(['title', 'description', 'category', 'severity', 'status', 'assigned_to']);
 
   useEffect(() => {
     fetch('http://localhost:8000/tickets')
@@ -100,9 +105,21 @@ export default function Home() {
       });
   }, []);
 
-  const sortedTickets = useMemo(() => {
-    if (!sortConfig.column) return tickets;
-    return [...tickets].sort((a, b) => {
+  const filteredAndSortedTickets = useMemo(() => {
+    // First filter by search term
+    let filtered = tickets;
+    if (searchTerm) {
+      filtered = tickets.filter(ticket => {
+        return searchColumns.some(column => {
+          const value = ticket[column as keyof Ticket];
+          return value && value.toString().toLowerCase().includes(searchTerm.toLowerCase());
+        });
+      });
+    }
+
+    // Then sort
+    if (!sortConfig.column) return filtered;
+    return [...filtered].sort((a, b) => {
       let aValue: any = a[sortConfig.column!];
       let bValue: any = b[sortConfig.column!];
       if (sortConfig.column === 'date_created') {
@@ -119,7 +136,7 @@ export default function Home() {
         bValue = bValue.toLowerCase();
       }
       if (sortConfig.column === 'status') {
-        const statusOrder = { 'closed': 1, 'approval_denied': 2, 'awaiting_approval': 3, 'in_progress': 4, 'open': 5 };
+        const statusOrder = { 'closed': 1, 'approval_denied': 2, 'awaiting_approval': 3, 'in_progress': 4, 'open': 5, 'sla_breached': 6 };
         aValue = statusOrder[aValue.toLowerCase().replace(/ /g, '_') as keyof typeof statusOrder] || 99;
         bValue = statusOrder[bValue.toLowerCase().replace(/ /g, '_') as keyof typeof statusOrder] || 99;
       }
@@ -127,7 +144,7 @@ export default function Home() {
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [tickets, sortConfig]);
+  }, [tickets, sortConfig, searchTerm, searchColumns]);
 
   const handleSort = (column: keyof Ticket) => {
     setSortConfig(prev => {
@@ -222,7 +239,7 @@ export default function Home() {
     tickets.forEach(ticket => {
       severityCount[ticket.severity] = (severityCount[ticket.severity] || 0) + 1;
     });
-    const severityOrder = { 'Critical': 1, 'High': 2, 'Medium': 3, 'Low': 4 };
+    const severityOrder = { 'Critical': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
     const severity = Object.entries(severityCount).map(([name, value]) => ({ name: formatter(name), value })).sort((a, b) => (severityOrder[b.name as keyof typeof severityOrder] || 99) - (severityOrder[a.name as keyof typeof severityOrder] || 99));
 
     // Status counts
@@ -230,7 +247,7 @@ export default function Home() {
     tickets.forEach(ticket => {
       statusCount[ticket.status] = (statusCount[ticket.status] || 0) + 1;
     });
-    const statusOrder = { 'Open': 1, 'In Progress': 2, 'Awaiting Approval': 3, 'Approval Denied': 4, 'Closed': 5 };
+    const statusOrder = { 'SLA Breached': 1, 'Open': 2, 'In Progress': 3, 'Awaiting Approval': 4, 'Approval Denied': 5, 'Closed': 6 };
     const status = Object.entries(statusCount).map(([name, value]) => ({ name: formatter(name), value })).sort((a, b) => (statusOrder[a.name as keyof typeof statusOrder] || 99) - (statusOrder[b.name as keyof typeof statusOrder] || 99));
 
     // Monthly counts
@@ -301,7 +318,7 @@ export default function Home() {
                     <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} />
                   ))}
                 </Pie>
-                <Legend content={(props) => <CustomLegend {...props} order={['Open', 'In Progress', 'Awaiting Approval', 'Approval Denied', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-5px)' }} />
+                <Legend content={(props) => <CustomLegend {...props} order={['SLA Breached', 'Open', 'In Progress', 'Awaiting Approval', 'Approval Denied', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-5px)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -323,7 +340,125 @@ export default function Home() {
 
         {/* Tickets Table */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <h2 className="text-xl font-semibold p-4 bg-gray-100">All Tickets</h2>
+          <div className="p-3 bg-gray-100">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <h2 className="text-xl font-semibold">All Tickets</h2>
+              <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto lg:min-w-[600px] lg:items-center">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search tickets..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="px-4 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm lg:w-170 mr-3"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none mr-3"
+                      type="button"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <label className="flex items-center mr-1">
+                    <input
+                      type="checkbox"
+                      checked={searchColumns.includes('title')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSearchColumns([...searchColumns, 'title']);
+                        } else {
+                          setSearchColumns(searchColumns.filter(col => col !== 'title'));
+                        }
+                      }}
+                      className="mr-1"
+                    />
+                    Title
+                  </label>
+                  <label className="flex items-center mr-1">
+                    <input
+                      type="checkbox"
+                      checked={searchColumns.includes('description')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSearchColumns([...searchColumns, 'description']);
+                        } else {
+                          setSearchColumns(searchColumns.filter(col => col !== 'description'));
+                        }
+                      }}
+                      className="mr-1"
+                    />
+                    Description
+                  </label>
+                  <label className="flex items-center mr-1">
+                    <input
+                      type="checkbox"
+                      checked={searchColumns.includes('category')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSearchColumns([...searchColumns, 'category']);
+                        } else {
+                          setSearchColumns(searchColumns.filter(col => col !== 'category'));
+                        }
+                      }}
+                      className="mr-1"
+                    />
+                    Category
+                  </label>
+                  <label className="flex items-center mr-1">
+                    <input
+                      type="checkbox"
+                      checked={searchColumns.includes('severity')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSearchColumns([...searchColumns, 'severity']);
+                        } else {
+                          setSearchColumns(searchColumns.filter(col => col !== 'severity'));
+                        }
+                      }}
+                      className="mr-1"
+                    />
+                    Severity
+                  </label>
+                  <label className="flex items-center mr-1">
+                    <input
+                      type="checkbox"
+                      checked={searchColumns.includes('status')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSearchColumns([...searchColumns, 'status']);
+                        } else {
+                          setSearchColumns(searchColumns.filter(col => col !== 'status'));
+                        }
+                      }}
+                      className="mr-1"
+                    />
+                    Status
+                  </label>
+                  <label className="flex items-center mr-3">
+                    <input
+                      type="checkbox"
+                      checked={searchColumns.includes('assigned_to')}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSearchColumns([...searchColumns, 'assigned_to']);
+                        } else {
+                          setSearchColumns(searchColumns.filter(col => col !== 'assigned_to'));
+                        }
+                      }}
+                      className="mr-1"
+                    />
+                    Assigned To
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="overflow-x-auto max-h-128 overflow-y-auto">
             <table className="w-full table-auto">
               <thead className="bg-gray-200 sticky top-0">
@@ -340,11 +475,11 @@ export default function Home() {
                 </tr>
               </thead>
               <tbody>
-                {sortedTickets.map((ticket) => (
+                {filteredAndSortedTickets.map((ticket) => (
                   <tr key={ticket.id} className="border-t">
                     <td className="px-4 py-2">{ticket.id}</td>
-                    <td className="px-4 py-2">{ticket.title}</td>
-                    <td className="px-4 py-2">{ticket.description}</td>
+                    <td className="px-4 py-2 max-w-64 truncate">{ticket.title}</td>
+                    <td className="px-4 py-2 max-w-96 truncate" title={ticket.description}>{ticket.description}</td>
                     <td className="px-4 py-2">{ticket.category}</td>
                     <td className="px-4 py-2" style={{ color: getSeverityColor(ticket.severity) }}>{formatter(ticket.severity)}</td>
                     <td className="px-4 py-2" style={{ color: getStatusColor(ticket.status) }}>{formatter(ticket.status)}</td>
