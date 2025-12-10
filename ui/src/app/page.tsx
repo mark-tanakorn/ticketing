@@ -73,6 +73,18 @@ export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{ column: keyof Ticket | null; direction: 'asc' | 'desc' }>({ column: null, direction: 'asc' });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    severity: 'low',
+    status: 'open',
+    head_approval: '1',
+    assigned_to: '',
+    attachment_upload: ''
+  });
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     fetch('http://localhost:8000/tickets')
@@ -136,6 +148,72 @@ export default function Home() {
     });
   };
 
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type, files } = e.target as HTMLInputElement;
+    if (type === 'file' && files) {
+      setFormData({
+        ...formData,
+        [name]: files[0]?.name || ''
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
+  };
+
+  const clearAttachment = () => {
+    setFormData({
+      ...formData,
+      attachment_upload: ''
+    });
+    // Also clear the file input
+    const fileInput = document.querySelector('input[name="attachment_upload"]') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('http://localhost:8000/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setMessage('Ticket created successfully!');
+        setFormData({
+          title: '',
+          description: '',
+          category: '',
+          severity: 'low',
+          status: 'open',
+          head_approval: '1',
+          assigned_to: '',
+          attachment_upload: ''
+        });
+        // Refresh tickets data
+        fetch('http://localhost:8000/tickets')
+          .then((res) => res.json())
+          .then((data) => {
+            setTickets(data.tickets || []);
+          })
+          .catch((err) => console.error('Error refreshing tickets:', err));
+        setShowCreateModal(false);
+      } else {
+        setMessage(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      setMessage('Error creating ticket');
+    }
+  };
+
   const chartData = useMemo(() => {
     if (!tickets || !tickets.length) return { severity: [], status: [], monthly: [] };
 
@@ -179,7 +257,14 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-4">Navigation</h2>
         <ul>
           <li className="mb-2"><a href="#" className="hover:text-gray-300">Dashboard</a></li>
-          <li className="mb-2"><a href="#" className="hover:text-gray-300">Tickets</a></li>
+          <li className="mb-2">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="hover:text-gray-300 text-left w-full"
+            >
+              Tickets
+            </button>
+          </li>
           <li className="mb-2"><a href="#" className="hover:text-gray-300">Reports</a></li>
           <li className="mb-2"><a href="#" className="hover:text-gray-300">Settings</a></li>
         </ul>
@@ -268,7 +353,7 @@ export default function Home() {
                       const date = new Date(ticket.date_created);
                       return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${(date.getFullYear() % 100).toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
                     })()}</td>
-                    <td className="px-4 py-2">{ticket.attachment_upload || ''}</td>
+                    <td className="px-4 py-2 max-w-32 truncate" title={ticket.attachment_upload || ''}>{ticket.attachment_upload || ''}</td>
                   </tr>
                 ))}
               </tbody>
@@ -276,6 +361,150 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Create Ticket Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[100vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Create New Ticket</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleFormSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Network">Network</option>
+                    <option value="Hardware">Hardware</option>
+                    <option value="Access">Access</option>
+                    <option value="Software">Software</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                  <select
+                    name="severity"
+                    value={formData.severity}
+                    onChange={handleFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Head Approval</label>
+                  <select
+                    name="head_approval"
+                    value={formData.head_approval}
+                    onChange={handleFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Tier 1">Tier 1</option>
+                    <option value="Tier 2">Tier 2</option>
+                    <option value="Tier 3">Tier 3</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                  <input
+                    type="text"
+                    name="assigned_to"
+                    value={formData.assigned_to}
+                    onChange={handleFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Attachment Upload</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="file"
+                      name="attachment_upload"
+                      onChange={handleFormChange}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {formData.attachment_upload && (
+                      <button
+                        type="button"
+                        onClick={clearAttachment}
+                        className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        title="Remove attachment"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleFormChange}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Create Ticket
+                </button>
+              </div>
+
+              {message && (
+                <p className={`mt-4 ${message.includes('Error') ? 'text-red-600' : 'text-green-600'}`}>
+                  {message}
+                </p>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
