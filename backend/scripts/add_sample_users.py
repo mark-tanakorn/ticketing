@@ -21,9 +21,9 @@ def add_sample_users():
     # Sample users data
     users = [
         {
-            "name": "Kenji",
+            "name": "Gary",
             "phone": "123",
-            "email": "kenji@gmail.com",
+            "email": "gary@gmail.com",
             "department": "IT",
             "approval_tier": "1"
         },

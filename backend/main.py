@@ -61,12 +61,30 @@ async def startup_event():
 async def root():
     return {"message": "Backend is running!"}
 
+@app.get("/users/{department}")
+async def get_users_by_department(department: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("""
+            SELECT id, name, department, approval_tier 
+            FROM users 
+            WHERE department = %s 
+            ORDER BY approval_tier
+        """, (department,))
+        users = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return {"users": users}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/tickets")
 async def get_tickets():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT * FROM tickets ORDER BY date_created DESC;")
+        cursor.execute("SELECT * FROM tickets ORDER BY date_created DESC")
         tickets = cursor.fetchall()
         cursor.close()
         conn.close()

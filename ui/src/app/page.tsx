@@ -73,11 +73,19 @@ interface Ticket {
   fixer: string;
 }
 
+interface User {
+  id: number;
+  name: string;
+  department: string;
+  approval_tier: string;
+}
+
 export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{ column: keyof Ticket | 'pic' | null; direction: 'asc' | 'desc' }>({ column: null, direction: 'asc' });
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -196,23 +204,38 @@ export default function Home() {
       
       // Reset approval_tier if department is cleared
       if (name === 'department' && !value) {
-        newFormData.approval_tier = '1';
+        newFormData.approval_tier = '';
+        setUsers([]);
+      } else if (name === 'department' && value) {
+        // Reset approval_tier when department changes
+        newFormData.approval_tier = '';
+        // Fetch users for the selected department
+        fetch(`http://localhost:8000/users/${value}`)
+          .then((res) => res.json())
+          .then((data) => {
+            setUsers(data.users || []);
+          })
+          .catch((err) => console.error('Error fetching users:', err));
       }
       
       setFormData(newFormData);
     }
   };
 
-  const clearAttachment = () => {
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
     setFormData({
-      ...formData,
+      title: '',
+      description: '',
+      category: '',
+      severity: 'low',
+      department: '',
+      status: 'open',
+      approval_tier: '',
+      assigned_to: '',
       attachment_upload: ''
     });
-    // Also clear the file input
-    const fileInput = document.querySelector('input[name="attachment_upload"]') as HTMLInputElement;
-    if (fileInput) {
-      fileInput.value = '';
-    }
+    setUsers([]);
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -487,15 +510,15 @@ export default function Home() {
             <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>
-                  <th className="px-4 py-2 text-left w-2/22">ID</th>
-                  <th className="px-4 py-2 text-left w-3/22">Title</th>
-                  <th className="px-4 py-2 text-left w-5/22">Description</th>
-                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('category')}>Category <span style={{ color: sortConfig.column === 'category' ? 'red' : 'grey', fontWeight: sortConfig.column === 'category' ? 'bolder' : 'normal' }}>{sortConfig.column === 'category' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('severity')}>Severity <span style={{ color: sortConfig.column === 'severity' ? 'red' : 'grey', fontWeight: sortConfig.column === 'severity' ? 'bolder' : 'normal' }}>{sortConfig.column === 'severity' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('status')}>Status <span style={{ color: sortConfig.column === 'status' ? 'red' : 'grey', fontWeight: sortConfig.column === 'status' ? 'bolder' : 'normal' }}>{sortConfig.column === 'status' ? (sortConfig.direction === 'desc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('pic')}>PIC <span style={{ color: sortConfig.column === 'pic' ? 'red' : 'grey', fontWeight: sortConfig.column === 'pic' ? 'bolder' : 'normal' }}>{sortConfig.column === 'pic' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer w-2/22" onClick={() => handleSort('date_created')}>Date Created <span style={{ color: sortConfig.column === 'date_created' ? 'red' : 'grey', fontWeight: sortConfig.column === 'date_created' ? 'bolder' : 'normal' }}>{sortConfig.column === 'date_created' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left w-2/22">Attachments</th>
+                  <th className="px-4 py-2 text-left w-3/44">ID</th>
+                  <th className="px-4 py-2 text-left w-7/44">Title</th>
+                  <th className="px-4 py-2 text-left w-10/44">Description</th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-4/44" onClick={() => handleSort('category')}>Category <span style={{ color: sortConfig.column === 'category' ? 'red' : 'grey', fontWeight: sortConfig.column === 'category' ? 'bolder' : 'normal' }}>{sortConfig.column === 'category' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-3/44" onClick={() => handleSort('severity')}>Severity <span style={{ color: sortConfig.column === 'severity' ? 'red' : 'grey', fontWeight: sortConfig.column === 'severity' ? 'bolder' : 'normal' }}>{sortConfig.column === 'severity' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-5/44" onClick={() => handleSort('status')}>Status <span style={{ color: sortConfig.column === 'status' ? 'red' : 'grey', fontWeight: sortConfig.column === 'status' ? 'bolder' : 'normal' }}>{sortConfig.column === 'status' ? (sortConfig.direction === 'desc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-3/44" onClick={() => handleSort('pic')}>PIC <span style={{ color: sortConfig.column === 'pic' ? 'red' : 'grey', fontWeight: sortConfig.column === 'pic' ? 'bolder' : 'normal' }}>{sortConfig.column === 'pic' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer w-4/44" onClick={() => handleSort('date_created')}>Date Created <span style={{ color: sortConfig.column === 'date_created' ? 'red' : 'grey', fontWeight: sortConfig.column === 'date_created' ? 'bolder' : 'normal' }}>{sortConfig.column === 'date_created' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left w-5/44">Attachments</th>
                 </tr>
               </thead>
               <tbody>
@@ -543,7 +566,7 @@ export default function Home() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Create New Ticket</h2>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={closeCreateModal}
                 className="text-gray-500 hover:text-gray-700 text-2xl"
               >
                 ×
@@ -614,7 +637,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Approval Tier</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Seek Approval From</label>
                   <select
                     name="approval_tier"
                     value={formData.approval_tier}
@@ -624,9 +647,12 @@ export default function Home() {
                       !formData.department ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
                     }`}
                   >
-                    <option value="1">Tier 1</option>
-                    <option value="2">Tier 2</option>
-                    <option value="3">Tier 3</option>
+                    <option value="">Select Approver</option>
+                    {users.map((user) => (
+                      <option key={user.approval_tier} value={user.approval_tier}>
+                        [Tier {user.approval_tier}] {user.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
@@ -678,7 +704,7 @@ export default function Home() {
               <div className="flex justify-end space-x-4 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={closeCreateModal}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
                   Cancel
