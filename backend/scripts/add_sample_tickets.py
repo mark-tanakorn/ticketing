@@ -88,7 +88,8 @@ def add_sample_data():
             category = random.choice(categories)
             severity = random.choice(severities)
             status = random.choice(statuses)
-            assigned_to = random.choice(assigned_tos)
+            approver = "Nick"
+            fixer = "Jeremy"
             attachment = random.choice(attachments)
 
             # Random date within last 90 days (in local time for display)
@@ -97,9 +98,9 @@ def add_sample_data():
 
             # Insert the ticket
             cursor.execute("""
-                INSERT INTO tickets (id, title, description, category, severity, status, assigned_to, attachment_upload, date_created)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (ticket_id, title, description, category, severity, status, assigned_to, attachment, date_created))
+                INSERT INTO tickets (id, title, description, category, severity, status, attachment_upload, date_created, approver, fixer)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (ticket_id, title, description, category, severity, status, attachment, date_created, approver, fixer))
 
             if (i + 1) % 10 == 0:
                 print(f"Added {i + 1} tickets...")
@@ -115,7 +116,7 @@ def add_sample_data():
         print("- All category types: Network, Software, Hardware, Access, Security")
         print("- All severity levels: low, medium, high, critical")
         print("- All status types: open, in_progress, awaiting_approval, approval_denied, closed, sla_breached")
-        print("- Different assigned teams")
+        print("- PIC assigned randomly (approver and fixer populated independently)")
         print("- Various attachment types (including null/empty)")
         print("- Random dates within last 90 days")
 

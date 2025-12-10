@@ -43,8 +43,9 @@ async def startup_event():
                 severity VARCHAR(50),
                 date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 status VARCHAR(50) DEFAULT 'open',
-                assigned_to VARCHAR(255),
-                attachment_upload TEXT
+                attachment_upload TEXT,
+                approver VARCHAR(255),
+                fixer VARCHAR(255)
             );
         """)
         
@@ -82,12 +83,31 @@ async def create_ticket(ticket: dict):
         # Get current time in Singapore timezone (UTC+8)
         current_time = datetime.utcnow() + timedelta(hours=8)
         
+        # Find approver based on department and approval_tier
+        approver_name = None
+        department = ticket.get('department')
+        approval_tier = ticket.get('approval_tier')
+        
+        if department and approval_tier:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT name FROM users 
+                WHERE department = %s AND approval_tier = %s
+                LIMIT 1
+            """, (department, approval_tier))
+            result = cursor.fetchone()
+            if result:
+                approver_name = result[0]
+            cursor.close()
+            conn.close()
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO tickets (id, title, description, category, severity, status, assigned_to, attachment_upload, date_created)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (ticket_id, ticket.get('title'), ticket.get('description'), ticket.get('category'), ticket.get('severity'), 'awaiting_approval', ticket.get('assigned_to'), ticket.get('attachment_upload'), current_time))
+            INSERT INTO tickets (id, title, description, category, severity, status, attachment_upload, date_created, approver, fixer)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (ticket_id, ticket.get('title'), ticket.get('description'), ticket.get('category'), ticket.get('severity'), 'awaiting_approval', ticket.get('attachment_upload'), current_time, approver_name, ticket.get('assigned_to')))
         conn.commit()
         cursor.close()
         conn.close()

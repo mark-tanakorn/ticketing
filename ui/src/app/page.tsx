@@ -68,14 +68,15 @@ interface Ticket {
   severity: string;
   date_created: string;
   status: string;
-  assigned_to: string;
   attachment_upload: string;
+  approver: string;
+  fixer: string;
 }
 
 export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortConfig, setSortConfig] = useState<{ column: keyof Ticket | null; direction: 'asc' | 'desc' }>({ column: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ column: keyof Ticket | 'pic' | null; direction: 'asc' | 'desc' }>({ column: null, direction: 'asc' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -90,7 +91,7 @@ export default function Home() {
   });
   const [message, setMessage] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchColumns, setSearchColumns] = useState<string[]>(['title', 'description', 'category', 'severity', 'status', 'assigned_to']);
+  const [searchColumns, setSearchColumns] = useState<(keyof Ticket | 'pic')[]>(['title', 'description', 'category', 'severity', 'status', 'pic']);
 
   useEffect(() => {
     fetch('http://localhost:8000/tickets')
@@ -112,6 +113,16 @@ export default function Home() {
     if (searchTerm) {
       filtered = tickets.filter(ticket => {
         return searchColumns.some(column => {
+          if (column === 'pic') {
+            const status = ticket.status.toLowerCase();
+            let picValue = '';
+            if (['closed', 'open', 'in_progress', 'in progress', 'sla_breached', 'sla breached'].includes(status)) {
+              picValue = ticket.fixer || '';
+            } else if (['awaiting_approval', 'awaiting approval', 'approval_denied', 'approval denied'].includes(status)) {
+              picValue = ticket.approver || '';
+            }
+            return picValue.toLowerCase().includes(searchTerm.toLowerCase());
+          }
           const value = ticket[column as keyof Ticket];
           return value && value.toString().toLowerCase().includes(searchTerm.toLowerCase());
         });
@@ -121,25 +132,29 @@ export default function Home() {
     // Then sort
     if (!sortConfig.column) return filtered;
     return [...filtered].sort((a, b) => {
-      let aValue: any = a[sortConfig.column!];
-      let bValue: any = b[sortConfig.column!];
+      let aValue: any;
+      let bValue: any;
+
+      if (sortConfig.column === 'pic') {
+        const getPic = (ticket: Ticket) => {
+          const status = ticket.status.toLowerCase();
+          if (['closed', 'open', 'in_progress', 'in progress', 'sla_breached', 'sla breached'].includes(status)) {
+            return ticket.fixer || '';
+          } else if (['awaiting_approval', 'awaiting approval', 'approval_denied', 'approval denied'].includes(status)) {
+            return ticket.approver || '';
+          }
+          return '';
+        };
+        aValue = getPic(a).toLowerCase();
+        bValue = getPic(b).toLowerCase();
+      } else {
+        aValue = a[sortConfig.column as keyof Ticket];
+        bValue = b[sortConfig.column as keyof Ticket];
+      }
+
       if (sortConfig.column === 'date_created') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
-      }
-      if (sortConfig.column === 'severity') {
-        const severityOrder = { 'low': 4, 'medium': 3, 'high': 2, 'critical': 1 };
-        aValue = severityOrder[aValue.toLowerCase() as keyof typeof severityOrder] || 99;
-        bValue = severityOrder[bValue.toLowerCase() as keyof typeof severityOrder] || 99;
-      }
-      if (sortConfig.column === 'category') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-      if (sortConfig.column === 'status') {
-        const statusOrder = { 'closed': 1, 'approval_denied': 2, 'awaiting_approval': 3, 'in_progress': 4, 'open': 5, 'sla_breached': 6 };
-        aValue = statusOrder[aValue.toLowerCase().replace(/ /g, '_') as keyof typeof statusOrder] || 99;
-        bValue = statusOrder[bValue.toLowerCase().replace(/ /g, '_') as keyof typeof statusOrder] || 99;
       }
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -147,7 +162,7 @@ export default function Home() {
     });
   }, [tickets, sortConfig, searchTerm, searchColumns]);
 
-  const handleSort = (column: keyof Ticket) => {
+  const handleSort = (column: keyof Ticket | 'pic') => {
     setSortConfig(prev => {
       if (prev.column === column) {
         // Toggle direction
@@ -452,17 +467,17 @@ export default function Home() {
                   <label className="flex items-center mr-3">
                     <input
                       type="checkbox"
-                      checked={searchColumns.includes('assigned_to')}
+                      checked={searchColumns.includes('pic')}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSearchColumns([...searchColumns, 'assigned_to']);
+                          setSearchColumns([...searchColumns, 'pic']);
                         } else {
-                          setSearchColumns(searchColumns.filter(col => col !== 'assigned_to'));
+                          setSearchColumns(searchColumns.filter(col => col !== 'pic'));
                         }
                       }}
                       className="mr-1"
                     />
-                    Assigned To
+                    PIC
                   </label>
                 </div>
               </div>
@@ -478,7 +493,7 @@ export default function Home() {
                   <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('category')}>Category <span style={{ color: sortConfig.column === 'category' ? 'red' : 'grey', fontWeight: sortConfig.column === 'category' ? 'bolder' : 'normal' }}>{sortConfig.column === 'category' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
                   <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('severity')}>Severity <span style={{ color: sortConfig.column === 'severity' ? 'red' : 'grey', fontWeight: sortConfig.column === 'severity' ? 'bolder' : 'normal' }}>{sortConfig.column === 'severity' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
                   <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('status')}>Status <span style={{ color: sortConfig.column === 'status' ? 'red' : 'grey', fontWeight: sortConfig.column === 'status' ? 'bolder' : 'normal' }}>{sortConfig.column === 'status' ? (sortConfig.direction === 'desc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('assigned_to')}>Assigned To <span style={{ color: sortConfig.column === 'assigned_to' ? 'red' : 'grey', fontWeight: sortConfig.column === 'assigned_to' ? 'bolder' : 'normal' }}>{sortConfig.column === 'assigned_to' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('pic')}>PIC <span style={{ color: sortConfig.column === 'pic' ? 'red' : 'grey', fontWeight: sortConfig.column === 'pic' ? 'bolder' : 'normal' }}>{sortConfig.column === 'pic' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
                   <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('date_created')}>Date Created <span style={{ color: sortConfig.column === 'date_created' ? 'red' : 'grey', fontWeight: sortConfig.column === 'date_created' ? 'bolder' : 'normal' }}>{sortConfig.column === 'date_created' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
                   <th className="px-4 py-2 text-left">Attachments</th>
                 </tr>
@@ -492,7 +507,15 @@ export default function Home() {
                     <td className="px-4 py-2">{ticket.category}</td>
                     <td className="px-4 py-2" style={{ color: getSeverityColor(ticket.severity) }}>{formatter(ticket.severity)}</td>
                     <td className="px-4 py-2" style={{ color: getStatusColor(ticket.status) }}>{formatter(ticket.status)}</td>
-                    <td className="px-4 py-2">{ticket.assigned_to}</td>
+                    <td className="px-4 py-2">{(() => {
+                      const status = ticket.status.toLowerCase();
+                      if (['closed', 'open', 'in_progress', 'in progress', 'sla_breached', 'sla breached'].includes(status)) {
+                        return ticket.fixer || '';
+                      } else if (['awaiting_approval', 'awaiting approval', 'approval_denied', 'approval denied'].includes(status)) {
+                        return ticket.approver || '';
+                      }
+                      return '';
+                    })()}</td>
                     <td className="px-4 py-2">{(() => {
                       const date = new Date(ticket.date_created);
                       return date.toLocaleString('en-US', {
@@ -601,9 +624,9 @@ export default function Home() {
                       !formData.department ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
                     }`}
                   >
-                    <option value="Tier 1">Tier 1</option>
-                    <option value="Tier 2">Tier 2</option>
-                    <option value="Tier 3">Tier 3</option>
+                    <option value="1">Tier 1</option>
+                    <option value="2">Tier 2</option>
+                    <option value="3">Tier 3</option>
                   </select>
                 </div>
 

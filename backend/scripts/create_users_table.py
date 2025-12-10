@@ -32,7 +32,7 @@ def create_users_table():
                 phone VARCHAR(20),
                 email VARCHAR(255) UNIQUE NOT NULL,
                 department VARCHAR(100),
-                approval_tier INTEGER,
+                approval_tier INTEGER
             );
         """)
 
@@ -52,14 +52,7 @@ def create_users_table():
         # Add some sample users
         print("Adding sample users...")
         sample_users = [
-            ("John Smith", "+1-555-0101", "john.smith@company.com", "IT", 1),
-            ("Sarah Johnson", "+1-555-0102", "sarah.johnson@company.com", "HR", 2),
-            ("Mike Davis", "+1-555-0103", "mike.davis@company.com", "Finance", 1),
-            ("Emily Chen", "+1-555-0104", "emily.chen@company.com", "IT", 3),
-            ("David Wilson", "+1-555-0105", "david.wilson@company.com", "Operations", 2),
-            ("Lisa Brown", "+1-555-0106", "lisa.brown@company.com", "Legal", None),
-            ("Tom Anderson", "+1-555-0107", "tom.anderson@company.com", "IT", 1),
-            ("Jennifer Lee", "+1-555-0108", "jennifer.lee@company.com", "Marketing", 2),
+            ("Nick", "123", "nicktrusthub@gmail.com", "IT", 1),
         ]
 
         for user in sample_users:
