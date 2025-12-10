@@ -238,6 +238,18 @@ export default function Home() {
     setUsers([]);
   };
 
+  const clearAttachment = () => {
+    setFormData({
+      ...formData,
+      attachment_upload: ''
+    });
+    // Also clear the file input
+    const fileInput = document.querySelector('input[name="attachment_upload"]') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  };
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
