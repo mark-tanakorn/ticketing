@@ -91,7 +91,7 @@ def add_sample_data():
             assigned_to = random.choice(assigned_tos)
             attachment = random.choice(attachments)
 
-            # Random date within last 90 days
+            # Random date within last 90 days (in local time for display)
             days_ago = random.randint(0, 90)
             date_created = datetime.now() - timedelta(days=days_ago)
 

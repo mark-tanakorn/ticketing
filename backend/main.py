@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import random
+from datetime import datetime, timedelta
 
 app = FastAPI()
 
@@ -78,12 +79,15 @@ async def create_ticket(ticket: dict):
         # Generate random ID
         ticket_id = random.randint(100000, 999999)
         
+        # Get current time in Singapore timezone (UTC+8)
+        current_time = datetime.utcnow() + timedelta(hours=8)
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO tickets (id, title, description, category, severity, status, assigned_to, attachment_upload)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (ticket_id, ticket.get('title'), ticket.get('description'), ticket.get('category'), ticket.get('severity'), 'awaiting_approval', ticket.get('assigned_to'), ticket.get('attachment_upload')))
+            INSERT INTO tickets (id, title, description, category, severity, status, assigned_to, attachment_upload, date_created)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (ticket_id, ticket.get('title'), ticket.get('description'), ticket.get('category'), ticket.get('severity'), 'awaiting_approval', ticket.get('assigned_to'), ticket.get('attachment_upload'), current_time))
         conn.commit()
         cursor.close()
         conn.close()

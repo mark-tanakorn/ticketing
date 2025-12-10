@@ -82,8 +82,9 @@ export default function Home() {
     description: '',
     category: '',
     severity: 'low',
+    department: '',
     status: 'open',
-    head_approval: '1',
+    approval_tier: '1',
     assigned_to: '',
     attachment_upload: ''
   });
@@ -173,10 +174,17 @@ export default function Home() {
         [name]: files[0]?.name || ''
       });
     } else {
-      setFormData({
+      let newFormData = {
         ...formData,
         [name]: value
-      });
+      };
+      
+      // Reset approval_tier if department is cleared
+      if (name === 'department' && !value) {
+        newFormData.approval_tier = '1';
+      }
+      
+      setFormData(newFormData);
     }
   };
 
@@ -210,8 +218,9 @@ export default function Home() {
           description: '',
           category: '',
           severity: 'low',
+          department: '',
           status: 'open',
-          head_approval: '1',
+          approval_tier: '1',
           assigned_to: '',
           attachment_upload: ''
         });
@@ -486,7 +495,14 @@ export default function Home() {
                     <td className="px-4 py-2">{ticket.assigned_to}</td>
                     <td className="px-4 py-2">{(() => {
                       const date = new Date(ticket.date_created);
-                      return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${(date.getFullYear() % 100).toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+                      return date.toLocaleString('en-US', {
+                        month: '2-digit',
+                        day: '2-digit',
+                        year: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      });
                     })()}</td>
                     <td className="px-4 py-2 max-w-32 truncate" title={ticket.attachment_upload || ''}>{ticket.attachment_upload || ''}</td>
                   </tr>
@@ -512,7 +528,7 @@ export default function Home() {
             </div>
 
             <form onSubmit={handleFormSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                   <input
@@ -557,12 +573,33 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Head Approval</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                   <select
-                    name="head_approval"
-                    value={formData.head_approval}
+                    name="department"
+                    value={formData.department || ''}
                     onChange={handleFormChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Department</option>
+                    <option value="IT">IT</option>
+                    <option value="HR">HR</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Operations">Operations</option>
+                    <option value="Legal">Legal</option>
+                    <option value="Marketing">Marketing</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Approval Tier</label>
+                  <select
+                    name="approval_tier"
+                    value={formData.approval_tier}
+                    onChange={handleFormChange}
+                    disabled={!formData.department}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      !formData.department ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+                    }`}
                   >
                     <option value="Tier 1">Tier 1</option>
                     <option value="Tier 2">Tier 2</option>
@@ -571,7 +608,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
                   <input
                     type="text"
                     name="assigned_to"
@@ -581,7 +618,7 @@ export default function Home() {
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Attachment Upload</label>
                   <div className="flex items-center space-x-2">
                     <input
