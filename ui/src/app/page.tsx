@@ -7,6 +7,7 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const getSeverityColor = (severity: string) => {
   switch (severity.toLowerCase()) {
+    case 'critical': return '#8B0000';
     case 'high': return '#E60000';
     case 'medium': return '#FF7800';
     case 'low': return '#4CBB17';
@@ -56,10 +57,12 @@ interface Ticket {
   id: number;
   title: string;
   description: string;
+  category: string;
   severity: string;
   date_created: string;
   status: string;
   assigned_to: string;
+  attachment_upload: string;
 }
 
 export default function Home() {
@@ -71,11 +74,12 @@ export default function Home() {
     fetch('http://localhost:8000/tickets')
       .then((res) => res.json())
       .then((data) => {
-        setTickets(data.tickets);
+        setTickets(data.tickets || []);
         setLoading(false);
       })
       .catch((err) => {
         console.error('Error fetching tickets:', err);
+        setTickets([]);
         setLoading(false);
       });
   }, []);
@@ -90,9 +94,13 @@ export default function Home() {
         bValue = new Date(bValue).getTime();
       }
       if (sortConfig.column === 'severity') {
-        const severityOrder = { 'high': 1, 'medium': 2, 'low': 3 };
+        const severityOrder = { 'low': 4, 'medium': 3, 'high': 2, 'critical': 1 };
         aValue = severityOrder[aValue.toLowerCase() as keyof typeof severityOrder] || 99;
         bValue = severityOrder[bValue.toLowerCase() as keyof typeof severityOrder] || 99;
+      }
+      if (sortConfig.column === 'category') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
       }
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -101,22 +109,34 @@ export default function Home() {
   }, [tickets, sortConfig]);
 
   const handleSort = (column: keyof Ticket) => {
-    setSortConfig(prev => ({
-      column,
-      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc'
-    }));
+    setSortConfig(prev => {
+      if (prev.column === column) {
+        // Toggle direction
+        return {
+          column,
+          direction: prev.direction === 'asc' ? 'desc' : 'asc'
+        };
+      } else {
+        // New column, set default direction
+        const defaultDirection = column === 'status' ? 'desc' : 'asc';
+        return {
+          column,
+          direction: defaultDirection
+        };
+      }
+    });
   };
 
   const chartData = useMemo(() => {
-    if (!tickets.length) return { severity: [], status: [], monthly: [] };
+    if (!tickets || !tickets.length) return { severity: [], status: [], monthly: [] };
 
     // Severity counts
     const severityCount: { [key: string]: number } = {};
     tickets.forEach(ticket => {
       severityCount[ticket.severity] = (severityCount[ticket.severity] || 0) + 1;
     });
-    const severityOrder = { 'High': 1, 'Medium': 2, 'Low': 3 };
-    const severity = Object.entries(severityCount).map(([name, value]) => ({ name: formatter(name), value })).sort((a, b) => (severityOrder[a.name as keyof typeof severityOrder] || 99) - (severityOrder[b.name as keyof typeof severityOrder] || 99));
+    const severityOrder = { 'Critical': 1, 'High': 2, 'Medium': 3, 'Low': 4 };
+    const severity = Object.entries(severityCount).map(([name, value]) => ({ name: formatter(name), value })).sort((a, b) => (severityOrder[b.name as keyof typeof severityOrder] || 99) - (severityOrder[a.name as keyof typeof severityOrder] || 99));
 
     // Status counts
     const statusCount: { [key: string]: number } = {};
@@ -167,12 +187,12 @@ export default function Home() {
             <h3 className="text-lg font-semibold mb-2 text-center">Tickets by Severity</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={chartData.severity} cx="40%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label={renderCustomLabel} labelLine={false}>
+                <Pie data={chartData.severity} cx="50%" cy="49%" outerRadius={80} fill="#8884d8" dataKey="value" label={renderCustomLabel} labelLine={false}>
                   {chartData.severity.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getSeverityColor(entry.name)} />
                   ))}
                 </Pie>
-                <Legend content={(props) => <CustomLegend {...props} order={['High', 'Medium', 'Low']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-40px)' }} />
+                <Legend content={(props) => <CustomLegend {...props} order={['Critical', 'High', 'Medium', 'Low']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-20px)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -182,12 +202,12 @@ export default function Home() {
             <h3 className="text-lg font-semibold mb-2 text-center">Tickets by Status</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={chartData.status} cx="40%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label={renderCustomLabel} labelLine={false}>
+                <Pie data={chartData.status} cx="50%" cy="49%" outerRadius={80} fill="#8884d8" dataKey="value" label={renderCustomLabel} labelLine={false}>
                   {chartData.status.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} />
                   ))}
                 </Pie>
-                <Legend content={(props) => <CustomLegend {...props} order={['Open', 'In Progress', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-40px)' }} />
+                <Legend content={(props) => <CustomLegend {...props} order={['Open', 'In Progress', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-5px)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -217,10 +237,12 @@ export default function Home() {
                   <th className="px-4 py-2 text-left">ID</th>
                   <th className="px-4 py-2 text-left">Title</th>
                   <th className="px-4 py-2 text-left">Description</th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('severity')}>Severity <span style={{ color: sortConfig.column === 'severity' ? 'blue' : 'grey', fontWeight: sortConfig.column === 'severity' ? 'bolder' : 'normal' }}>{sortConfig.column === 'severity' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('status')}>Status <span style={{ color: sortConfig.column === 'status' ? 'blue' : 'grey', fontWeight: sortConfig.column === 'status' ? 'bolder' : 'normal' }}>{sortConfig.column === 'status' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('assigned_to')}>Assigned To <span style={{ color: sortConfig.column === 'assigned_to' ? 'blue' : 'grey', fontWeight: sortConfig.column === 'assigned_to' ? 'bolder' : 'normal' }}>{sortConfig.column === 'assigned_to' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
-                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('date_created')}>Date Created <span style={{ color: sortConfig.column === 'date_created' ? 'blue' : 'grey', fontWeight: sortConfig.column === 'date_created' ? 'bolder' : 'normal' }}>{sortConfig.column === 'date_created' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('category')}>Category <span style={{ color: sortConfig.column === 'category' ? 'red' : 'grey', fontWeight: sortConfig.column === 'category' ? 'bolder' : 'normal' }}>{sortConfig.column === 'category' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('severity')}>Severity <span style={{ color: sortConfig.column === 'severity' ? 'red' : 'grey', fontWeight: sortConfig.column === 'severity' ? 'bolder' : 'normal' }}>{sortConfig.column === 'severity' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('status')}>Status <span style={{ color: sortConfig.column === 'status' ? 'red' : 'grey', fontWeight: sortConfig.column === 'status' ? 'bolder' : 'normal' }}>{sortConfig.column === 'status' ? (sortConfig.direction === 'desc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('assigned_to')}>Assigned To <span style={{ color: sortConfig.column === 'assigned_to' ? 'red' : 'grey', fontWeight: sortConfig.column === 'assigned_to' ? 'bolder' : 'normal' }}>{sortConfig.column === 'assigned_to' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left cursor-pointer" onClick={() => handleSort('date_created')}>Date Created <span style={{ color: sortConfig.column === 'date_created' ? 'red' : 'grey', fontWeight: sortConfig.column === 'date_created' ? 'bolder' : 'normal' }}>{sortConfig.column === 'date_created' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
+                  <th className="px-4 py-2 text-left">Attachments</th>
                 </tr>
               </thead>
               <tbody>
@@ -229,10 +251,12 @@ export default function Home() {
                     <td className="px-4 py-2">{ticket.id}</td>
                     <td className="px-4 py-2">{ticket.title}</td>
                     <td className="px-4 py-2">{ticket.description}</td>
+                    <td className="px-4 py-2">{ticket.category}</td>
                     <td className="px-4 py-2" style={{ color: getSeverityColor(ticket.severity) }}>{formatter(ticket.severity)}</td>
                     <td className="px-4 py-2" style={{ color: getStatusColor(ticket.status) }}>{formatter(ticket.status)}</td>
                     <td className="px-4 py-2">{ticket.assigned_to}</td>
                     <td className="px-4 py-2">{new Date(ticket.date_created).toLocaleDateString()}</td>
+                    <td className="px-4 py-2">{ticket.attachment_upload || ''}</td>
                   </tr>
                 ))}
               </tbody>
