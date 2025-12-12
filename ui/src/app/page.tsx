@@ -526,7 +526,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <div className="overflow-x-auto max-h-128 overflow-y-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-470px)] overflow-y-auto">
             <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>
