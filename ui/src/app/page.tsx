@@ -41,7 +41,7 @@ const CustomLegend = ({ payload, order }: { payload?: readonly any[], order: str
       {sortedPayload.map((entry, index) => (
         <div key={`legend-${index}`} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
           <div style={{ width: 10, height: 10, backgroundColor: entry.color, borderRadius: '50%', marginRight: 8 }}></div>
-          <span>{entry.value}</span>
+          <span style={{ fontSize: '13px' }}>{entry.value}</span>
         </div>
       ))}
     </div>
@@ -163,6 +163,14 @@ export default function Home() {
       if (sortConfig.column === 'date_created') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
+      }
+      if (sortConfig.column === 'status') {
+        // Custom status sorting based on priority
+        const statusOrder = { 'Closed': 1, 'Awaiting Approval': 2, 'In Progress': 3, 'Open': 4, 'Approval Denied': 5, 'SLA Breached': 6 };
+        const formattedAValue = formatter(aValue);
+        const formattedBValue = formatter(bValue);
+        aValue = statusOrder[formattedAValue as keyof typeof statusOrder] || 99;
+        bValue = statusOrder[formattedBValue as keyof typeof statusOrder] || 99;
       }
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -306,7 +314,7 @@ export default function Home() {
     tickets.forEach(ticket => {
       statusCount[ticket.status] = (statusCount[ticket.status] || 0) + 1;
     });
-    const statusOrder = { 'SLA Breached': 1, 'Open': 2, 'In Progress': 3, 'Awaiting Approval': 4, 'Approval Denied': 5, 'Closed': 6 };
+    const statusOrder = { 'SLA Breached': 1, 'Approval Denied': 2, 'Open': 3, 'In Progress': 4, 'Awaiting Approval': 5, 'Closed': 6 };
     const status = Object.entries(statusCount).map(([name, value]) => ({ name: formatter(name), value })).sort((a, b) => (statusOrder[a.name as keyof typeof statusOrder] || 99) - (statusOrder[b.name as keyof typeof statusOrder] || 99));
 
     // Monthly counts
@@ -362,7 +370,7 @@ export default function Home() {
                     <Cell key={`cell-${index}`} fill={getSeverityColor(entry.name)} />
                   ))}
                 </Pie>
-                <Legend content={(props) => <CustomLegend {...props} order={['Critical', 'High', 'Medium', 'Low']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-20px)' }} />
+                <Legend content={(props) => <CustomLegend {...props} order={['Critical', 'High', 'Medium', 'Low']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-30px)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -377,7 +385,7 @@ export default function Home() {
                     <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} />
                   ))}
                 </Pie>
-                <Legend content={(props) => <CustomLegend {...props} order={['SLA Breached', 'Open', 'In Progress', 'Awaiting Approval', 'Approval Denied', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-5px)' }} />
+                <Legend content={(props) => <CustomLegend {...props} order={['SLA Breached', 'Approval Denied', 'Open', 'In Progress', 'Awaiting Approval', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(0px)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
