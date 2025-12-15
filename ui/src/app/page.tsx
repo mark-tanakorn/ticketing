@@ -619,12 +619,13 @@ export default function Home() {
             <h3 className="text-lg font-semibold mb-2 text-center">Tickets by Severity</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={chartData.severity} cx="50%" cy="49%" outerRadius={80} fill="#8884d8" dataKey="value" label={renderCustomLabel} labelLine={false}>
+                <Pie data={chartData.severity} cx="50%" cy="49%" outerRadius={80} fill="#8884d8" dataKey="value">
                   {chartData.severity.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getSeverityColor(entry.name)} />
                   ))}
                 </Pie>
-                <Legend content={(props) => <CustomLegend {...props} order={['Critical', 'High', 'Medium', 'Low']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-30px)' }} />
+                <Tooltip position={{ x: 63, y: 10 }} />
+                <Legend content={(props)=> <CustomLegend {...props} order={['Critical', 'High', 'Medium', 'Low']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(-30px)' }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -634,11 +635,12 @@ export default function Home() {
             <h3 className="text-lg font-semibold mb-2 text-center">Tickets by Status</h3>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={chartData.status} cx="50%" cy="49%" outerRadius={80} fill="#8884d8" dataKey="value" label={renderCustomLabel} labelLine={false}>
+                <Pie data={chartData.status} cx="50%" cy="49%" outerRadius={80} fill="#8884d8" dataKey="value">
                   {chartData.status.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={getStatusColor(entry.name)} />
                   ))}
                 </Pie>
+                <Tooltip position={{ x: 34,y: 10 }} />
                 <Legend content={(props) => <CustomLegend {...props} order={['SLA Breached', 'Approval Denied', 'Open', 'In Progress', 'Awaiting Approval', 'Closed']} />} layout="vertical" verticalAlign="middle" align="right" iconType="circle" wrapperStyle={{ transform: 'translateX(0px)' }} />
               </PieChart>
             </ResponsiveContainer>
