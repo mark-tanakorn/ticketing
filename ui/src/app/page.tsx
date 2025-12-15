@@ -531,7 +531,7 @@ export default function Home() {
               <thead className="bg-gray-200 sticky top-0">
                 <tr>
                   <th className="px-4 py-2 text-left w-3/44">ID</th>
-                  <th className="px-4 py-2 text-left w-7/44">Title</th>
+                  <th className="px-4 py-2 text-left w-6/44">Title</th>
                   <th className="px-4 py-2 text-left w-10/44">Description</th>
                   <th className="px-4 py-2 text-left cursor-pointer w-4/44" onClick={() => handleSort('category')}>Category <span style={{ color: sortConfig.column === 'category' ? 'red' : 'grey', fontWeight: sortConfig.column === 'category' ? 'bolder' : 'normal' }}>{sortConfig.column === 'category' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
                   <th className="px-4 py-2 text-left cursor-pointer w-3/44" onClick={() => handleSort('severity')}>Severity <span style={{ color: sortConfig.column === 'severity' ? 'red' : 'grey', fontWeight: sortConfig.column === 'severity' ? 'bolder' : 'normal' }}>{sortConfig.column === 'severity' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↓'}</span></th>
