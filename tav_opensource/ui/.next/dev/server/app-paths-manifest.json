@@ -1,5 +1,0 @@
-{
-  "/page": "app/page.js",
-  "/editor-page/page": "app/editor-page/page.js",
-  "/settings-page/page": "app/settings-page/page.js"
-}
