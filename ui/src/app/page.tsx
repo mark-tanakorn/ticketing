@@ -341,22 +341,21 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-4">Navigation</h2>
         <ul>
           <li className="mb-2"><a href="#" className="hover:text-gray-300">Dashboard</a></li>
-          <li className="mb-2">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="hover:text-gray-300 text-left w-full"
-            >
-              Tickets
-            </button>
-          </li>
-          <li className="mb-2"><a href="#" className="hover:text-gray-300">Reports</a></li>
-          <li className="mb-2"><a href="#" className="hover:text-gray-300">Settings</a></li>
+          <li className="mb-2"><a href="/users" className="hover:text-gray-300">Users</a></li>
         </ul>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 p-8">
-        <h1 className="text-3xl font-bold mb-6">Ticketing System Dashboard</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Ticketing System Dashboard</h1>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Create Ticket
+          </button>
+        </div>
 
         {/* Cards with Charts */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
