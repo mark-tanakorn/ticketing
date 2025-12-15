@@ -1,10 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import random
 from datetime import datetime, timedelta
 import httpx
+import os
 
 app = FastAPI()
 
@@ -49,6 +51,12 @@ async def startup_event():
                 fixer VARCHAR(255)
             );
         """)
+
+        # Add approval tracking columns (safe for existing DBs)
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS approver_decision BOOLEAN;")
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS approver_reply_text TEXT;")
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS approver_decided_at TIMESTAMP;")
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS tav_execution_id TEXT;")
         
         conn.commit()
         cursor.close()
@@ -249,8 +257,10 @@ async def get_tickets():
         return {"error": str(e)}
 
 # Add TAV constants and helper function
-TAV_BASE_URL = "http://192.168.118.23:5000"
-TAV_WORKFLOW_ID = "de51f0d2-31fb-448a-acfd-409586920ad8"
+# For local dev, TAV typically runs at http://localhost:5000
+# Override via env vars if you're targeting a remote TAV instance.
+TAV_BASE_URL = os.getenv("TAV_BASE_URL", "http://localhost:5000")
+TAV_WORKFLOW_ID = os.getenv("TAV_WORKFLOW_ID", "de51f0d2-31fb-448a-acfd-409586920ad8")
 
 async def trigger_tav_workflow(ticket_payload: dict) -> None:
     url = f"{TAV_BASE_URL}/api/v1/workflows/{TAV_WORKFLOW_ID}/execute"
@@ -260,6 +270,73 @@ async def trigger_tav_workflow(ticket_payload: dict) -> None:
         # If TAV dev-mode is enabled, no Authorization header is needed.
         r = await client.post(url, json=body)
         r.raise_for_status()
+
+
+class TicketApprovalPayload(BaseModel):
+    approved: bool
+    reply_text: str | None = None
+    execution_id: str | None = None
+
+
+@app.post("/tickets/{ticket_id}/approval")
+async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload):
+    """
+    Callback endpoint for TAV to report approver decision (yes/no + optional message).
+
+    Expected body:
+      { "approved": true|false, "reply_text": "...", "execution_id": "..." }
+    """
+    try:
+        # If approved, move ticket back to the normal "open" flow (not a terminal "approved" state)
+        new_status = "open" if payload.approved else "approval_denied"
+        decided_at = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
+
+        # If approval is denied, we require a remark / reason.
+        if not payload.approved and (payload.reply_text is None or payload.reply_text.strip() == ""):
+            raise HTTPException(
+                status_code=400,
+                detail="reply_text is required when approved=false",
+            )
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE tickets
+            SET status = %s,
+                approver_decision = %s,
+                approver_reply_text = %s,
+                approver_decided_at = %s,
+                tav_execution_id = %s
+            WHERE id = %s
+            """,
+            (
+                new_status,
+                payload.approved,
+                payload.reply_text,
+                decided_at,
+                payload.execution_id,
+                ticket_id,
+            ),
+        )
+        updated = cursor.rowcount
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        if updated == 0:
+            return {"error": f"Ticket {ticket_id} not found"}
+
+        return {
+            "message": "Approval decision recorded",
+            "ticket_id": ticket_id,
+            "status": new_status,
+            "approved": payload.approved,
+            "reply_text": payload.reply_text,
+            "execution_id": payload.execution_id,
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.post("/tickets")
 async def create_ticket(ticket: dict):
