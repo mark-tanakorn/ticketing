@@ -85,6 +85,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{ column: keyof Ticket | 'pic' | null; direction: 'asc' | 'desc' }>({ column: null, direction: 'asc' });
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [formData, setFormData] = useState({
     title: '',
@@ -97,9 +99,43 @@ export default function Home() {
     assigned_to: '',
     attachment_upload: ''
   });
-  const [message, setMessage] = useState('');
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    severity: 'low',
+    status: 'open',
+    department: '',
+    approval_tier: '',
+    assigned_to: '',
+    attachment_upload: ''
+  });
+  const [editUsers, setEditUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchColumns, setSearchColumns] = useState<(keyof Ticket | 'pic')[]>(['title', 'description', 'category', 'severity', 'status', 'pic']);
+
+  // Check if create form is valid (all fields except attachment_upload must be filled)
+  const isCreateFormValid = useMemo(() => {
+    return formData.title.trim() !== '' &&
+           formData.category !== '' &&
+           formData.severity !== '' &&
+           formData.department !== '' &&
+           formData.approval_tier !== '' &&
+           formData.assigned_to.trim() !== '' &&
+           formData.description.trim() !== '';
+  }, [formData]);
+
+  // Check if edit form is valid (all fields except attachment_upload must be filled)
+  const isEditFormValid = useMemo(() => {
+    return editFormData.title.trim() !== '' &&
+           editFormData.category !== '' &&
+           editFormData.severity !== '' &&
+           editFormData.status !== '' &&
+           editFormData.department !== '' &&
+           editFormData.approval_tier !== '' &&
+           editFormData.assigned_to.trim() !== '' &&
+           editFormData.description.trim() !== '';
+  }, [editFormData]);
 
   useEffect(() => {
     fetch('http://localhost:8000/tickets')
@@ -246,6 +282,67 @@ export default function Home() {
     setUsers([]);
   };
 
+  const handleRowClick = (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+    
+    // Start with basic fields
+    let initialFormData = {
+      title: ticket.title,
+      description: ticket.description || '',
+      category: ticket.category || '',
+      severity: ticket.severity || 'low',
+      status: ticket.status || 'open',
+      department: '', // Will be populated by reverse lookup if possible
+      approval_tier: '', // Will be populated by reverse lookup if possible
+      assigned_to: ticket.fixer || '', // Use fixer as assigned_to
+      attachment_upload: ticket.attachment_upload || ''
+    };
+
+    // If there's an existing approver, try to reverse-lookup their department and tier
+    if (ticket.approver) {
+      fetch('http://localhost:8000/users')
+        .then((res) => res.json())
+        .then((data) => {
+          const users = data.users || [];
+          const approverUser = users.find((u: any) => u.name === ticket.approver);
+          
+          if (approverUser) {
+            // Found the approver user, populate department and tier
+            initialFormData.department = approverUser.department || '';
+            initialFormData.approval_tier = approverUser.approval_tier?.toString() || '';
+            
+            // Also fetch users for this department to populate the approval dropdown
+            if (approverUser.department) {
+              fetch(`http://localhost:8000/users/${approverUser.department}`)
+                .then((res) => res.json())
+                .then((deptData) => {
+                  setEditUsers(deptData.users || []);
+                })
+                .catch((err) => console.error('Error fetching department users:', err));
+            }
+          }
+          
+          setEditFormData(initialFormData);
+        })
+        .catch((err) => {
+          console.error('Error fetching users for reverse lookup:', err);
+          setEditFormData(initialFormData); // Set without lookup data
+        });
+    } else {
+      // No existing approver, fetch all users for the dropdown
+      fetch('http://localhost:8000/users')
+        .then((res) => res.json())
+        .then((data) => {
+          setEditUsers(data.users || []);
+        })
+        .catch((err) => console.error('Error fetching users for edit:', err));
+      
+      setEditFormData(initialFormData);
+    }
+    
+    setShowEditModal(true);
+  };
+
   const clearAttachment = () => {
     setFormData({
       ...formData,
@@ -270,7 +367,6 @@ export default function Home() {
       });
       const data = await response.json();
       if (response.ok) {
-        setMessage('Ticket created successfully!');
         setFormData({
           title: '',
           description: '',
@@ -291,10 +387,136 @@ export default function Home() {
           .catch((err) => console.error('Error refreshing tickets:', err));
         setShowCreateModal(false);
       } else {
-        setMessage(`Error: ${data.error}`);
+        // Error handled silently
       }
     } catch (error) {
-      setMessage('Error creating ticket');
+      // Error handled silently
+    }
+  };
+
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type, files } = e.target as HTMLInputElement;
+    if (type === 'file' && files) {
+      setEditFormData({
+        ...editFormData,
+        [name]: files[0]?.name || ''
+      });
+    } else {
+      let newFormData = {
+        ...editFormData,
+        [name]: value
+      };
+      
+      // Reset approval_tier if department is cleared
+      if (name === 'department' && !value) {
+        newFormData.approval_tier = '';
+        setEditUsers([]);
+      } else if (name === 'department' && value) {
+        // Reset approval_tier when department changes
+        newFormData.approval_tier = '';
+        // Fetch users for the selected department
+        fetch(`http://localhost:8000/users/${value}`)
+          .then((res) => res.json())
+          .then((data) => {
+            setEditUsers(data.users || []);
+          })
+          .catch((err) => console.error('Error fetching users for edit:', err));
+      }
+      
+      setEditFormData(newFormData);
+    }
+  };
+
+  const handleEditFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTicket) return;
+
+    // Find approver based on department and approval_tier
+    let approverName = '';
+    if (editFormData.department && editFormData.approval_tier) {
+      const approver = editUsers.find(u => u.department === editFormData.department && u.approval_tier.toString() === editFormData.approval_tier);
+      if (approver) {
+        approverName = approver.name;
+      }
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/tickets/${selectedTicket.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: editFormData.title,
+          description: editFormData.description,
+          category: editFormData.category,
+          severity: editFormData.severity,
+          status: editFormData.status,
+          attachment_upload: editFormData.attachment_upload,
+          approver: approverName,
+          fixer: editFormData.assigned_to
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        // Refresh tickets data
+        fetch('http://localhost:8000/tickets')
+          .then((res) => res.json())
+          .then((data) => {
+            setTickets(data.tickets || []);
+          })
+          .catch((err) => console.error('Error refreshing tickets:', err));
+        setShowEditModal(false);
+      } else {
+        // Error handled silently
+      }
+    } catch (error) {
+      // Error handled silently
+    }
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setSelectedTicket(null);
+    setEditFormData({
+      title: '',
+      description: '',
+      category: '',
+      severity: 'low',
+      status: 'open',
+      department: '',
+      approval_tier: '',
+      assigned_to: '',
+      attachment_upload: ''
+    });
+  };
+
+  const handleDeleteTicket = async () => {
+    if (!selectedTicket) return;
+
+    if (!confirm(`Are you sure you want to delete ticket "${selectedTicket.title}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/tickets/${selectedTicket.id}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (response.ok) {
+        // Refresh tickets data
+        fetch('http://localhost:8000/tickets')
+          .then((res) => res.json())
+          .then((data) => {
+            setTickets(data.tickets || []);
+          })
+          .catch((err) => console.error('Error refreshing tickets:', err));
+        setShowEditModal(false);
+      } else {
+        // Error handled silently
+      }
+    } catch (error) {
+      // Error handled silently
     }
   };
 
@@ -542,7 +764,7 @@ export default function Home() {
               </thead>
               <tbody>
                 {filteredAndSortedTickets.map((ticket) => (
-                  <tr key={ticket.id} className="border-t">
+                  <tr key={ticket.id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => handleRowClick(ticket)}>
                     <td className="px-4 py-2 truncate">{ticket.id}</td>
                     <td className="px-4 py-2 truncate">{ticket.title}</td>
                     <td className="px-4 py-2 truncate" title={ticket.description}>{ticket.description}</td>
@@ -730,17 +952,192 @@ export default function Home() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!isCreateFormValid}
+                  className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    isCreateFormValid
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  }`}
                 >
                   Create Ticket
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-              {message && (
-                <p className={`mt-4 ${message.includes('Error') ? 'text-red-600' : 'text-green-600'}`}>
-                  {message}
-                </p>
-              )}
+      {/* Edit Ticket Modal */}
+      {showEditModal && selectedTicket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[100vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Edit Ticket</h2>
+              <button
+                onClick={closeEditModal}
+                className="text-gray-500 hover:text-gray-700 text-2xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleEditFormSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={editFormData.title}
+                    onChange={handleEditFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    name="category"
+                    value={editFormData.category}
+                    onChange={handleEditFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Network">Network</option>
+                    <option value="Hardware">Hardware</option>
+                    <option value="Access">Access</option>
+                    <option value="Software">Software</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                  <select
+                    name="severity"
+                    value={editFormData.severity}
+                    onChange={handleEditFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                  <select
+                    name="department"
+                    value={editFormData.department || ''}
+                    onChange={handleEditFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select Department</option>
+                    <option value="IT">IT</option>
+                    <option value="HR">HR</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Operations">Operations</option>
+                    <option value="Legal">Legal</option>
+                    <option value="Marketing">Marketing</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Seek Approval From</label>
+                  <select
+                    name="approval_tier"
+                    value={editFormData.approval_tier}
+                    onChange={handleEditFormChange}
+                    disabled={!editFormData.department}
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      !editFormData.department ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    <option value="">Select Approver</option>
+                    {editUsers.map((user) => (
+                      <option key={user.approval_tier} value={user.approval_tier}>
+                        [Tier {user.approval_tier}] {user.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
+                  <input
+                    type="text"
+                    name="assigned_to"
+                    value={editFormData.assigned_to}
+                    onChange={handleEditFormChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="md:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Attachment Upload</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="file"
+                      name="attachment_upload"
+                      onChange={handleEditFormChange}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {editFormData.attachment_upload && (
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData({...editFormData, attachment_upload: ''})}
+                        className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        title="Remove attachment"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  name="description"
+                  value={editFormData.description}
+                  onChange={handleEditFormChange}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-between space-x-4 mt-6">
+                <button
+                  type="button"
+                  onClick={handleDeleteTicket}
+                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  Delete Ticket
+                </button>
+                <div className="flex space-x-4">
+                  <button
+                    type="button"
+                    onClick={closeEditModal}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!isEditFormValid}
+                    className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isEditFormValid
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    }`}
+                  >
+                    Update Ticket
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         </div>

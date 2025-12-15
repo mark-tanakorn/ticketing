@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 interface User {
   id: number;
@@ -32,6 +32,24 @@ export default function Users() {
     department: '',
     approval_tier: '1'
   });
+
+  // Check if create form is valid (all fields must be filled)
+  const isCreateFormValid = useMemo(() => {
+    return formData.name.trim() !== '' &&
+           formData.phone.trim() !== '' &&
+           formData.email.trim() !== '' &&
+           formData.department !== '' &&
+           formData.approval_tier !== '';
+  }, [formData]);
+
+  // Check if edit form is valid (all fields must be filled)
+  const isEditFormValid = useMemo(() => {
+    return editFormData.name.trim() !== '' &&
+           editFormData.phone.trim() !== '' &&
+           editFormData.email.trim() !== '' &&
+           editFormData.department !== '' &&
+           editFormData.approval_tier !== '';
+  }, [editFormData]);
 
   useEffect(() => {
     fetchUsers();
@@ -362,7 +380,12 @@ export default function Users() {
                   </button>
                   <button
                     type="submit"
-                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    disabled={!isCreateFormValid}
+                    className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isCreateFormValid
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    }`}
                   >
                     Create User
                   </button>
@@ -463,7 +486,12 @@ export default function Users() {
                     </button>
                     <button
                       type="submit"
-                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={!isEditFormValid}
+                      className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isEditFormValid
+                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      }`}
                     >
                       Update User
                     </button>

@@ -196,3 +196,33 @@ async def create_ticket(ticket: dict):
         return {"message": "Ticket created successfully"}
     except Exception as e:
         return {"error": str(e)}
+
+@app.put("/tickets/{ticket_id}")
+async def update_ticket(ticket_id: int, ticket: dict):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE tickets 
+            SET title = %s, description = %s, category = %s, severity = %s, status = %s, attachment_upload = %s, approver = %s, fixer = %s
+            WHERE id = %s
+        """, (ticket.get('title'), ticket.get('description'), ticket.get('category'), ticket.get('severity'), ticket.get('status'), ticket.get('attachment_upload'), ticket.get('approver'), ticket.get('fixer'), ticket_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "Ticket updated successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.delete("/tickets/{ticket_id}")
+async def delete_ticket(ticket_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM tickets WHERE id = %s", (ticket_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "Ticket deleted successfully"}
+    except Exception as e:
+        return {"error": str(e)}
