@@ -121,6 +121,27 @@ async def create_user(user: dict):
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Check if name already exists
+        cursor.execute("SELECT id FROM users WHERE LOWER(name) = LOWER(%s)", (user.get('name'),))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "User name already exists"}
+
+        # Check if email already exists
+        cursor.execute("SELECT id FROM users WHERE LOWER(email) = LOWER(%s)", (user.get('email'),))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "User email already exists"}
+
+        # Check if phone already exists
+        cursor.execute("SELECT id FROM users WHERE phone = %s", (user.get('phone'),))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "User phone already exists"}
+
         # Get the next sequential ID (not auto-increment)
         cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM users")
         next_id = cursor.fetchone()[0]
@@ -141,6 +162,28 @@ async def update_user(user_id: int, user: dict):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Check if name already exists for another user
+        cursor.execute("SELECT id FROM users WHERE LOWER(name) = LOWER(%s) AND id != %s", (user.get('name'), user_id))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "User name already exists"}
+
+        # Check if email already exists for another user
+        cursor.execute("SELECT id FROM users WHERE LOWER(email) = LOWER(%s) AND id != %s", (user.get('email'), user_id))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "User email already exists"}
+
+        # Check if phone already exists for another user
+        cursor.execute("SELECT id FROM users WHERE phone = %s AND id != %s", (user.get('phone'), user_id))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "User phone already exists"}
+
         cursor.execute("""
             UPDATE users 
             SET name = %s, phone = %s, email = %s, department = %s, approval_tier = %s
@@ -270,6 +313,20 @@ async def create_ticket(ticket: dict):
             cursor.close()
             conn.close()
 
+        # Fetch fixer phone number from fixers table
+        fixer_phone = None
+        if ticket.get('assigned_to'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT phone FROM fixers WHERE name = %s LIMIT 1
+            """, (ticket.get('assigned_to'),))
+            result = cursor.fetchone()
+            if result:
+                fixer_phone = result[0]
+            cursor.close()
+            conn.close()
+
         # Craft the payload for TAV workflow
         ticket_payload = {
             "ticket_id": ticket_id,
@@ -278,7 +335,9 @@ async def create_ticket(ticket: dict):
             "severity": ticket.get("severity"),
             "date_created": current_time.isoformat(),
             "approver": approver_name,
-            "approver_phone": approver_phone
+            "approver_phone": approver_phone,
+            'fixer': ticket.get('assigned_to'),
+            'fixer_phone': fixer_phone
         }
 
         # Trigger TAV workflow
@@ -339,6 +398,27 @@ async def create_fixer(fixer: dict):
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Check if name already exists
+        cursor.execute("SELECT id FROM fixers WHERE LOWER(name) = LOWER(%s)", (fixer.get('name'),))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Fixer name already exists"}
+
+        # Check if email already exists
+        cursor.execute("SELECT id FROM fixers WHERE LOWER(email) = LOWER(%s)", (fixer.get('email'),))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Fixer email already exists"}
+
+        # Check if phone already exists
+        cursor.execute("SELECT id FROM fixers WHERE phone = %s", (fixer.get('phone'),))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Fixer phone already exists"}
+
         # Get the next sequential ID (not auto-increment)
         cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM fixers")
         next_id = cursor.fetchone()[0]
@@ -360,6 +440,28 @@ async def update_fixer(fixer_id: int, fixer: dict):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Check if name already exists for another fixer
+        cursor.execute("SELECT id FROM fixers WHERE LOWER(name) = LOWER(%s) AND id != %s", (fixer.get('name'), fixer_id))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Fixer name already exists"}
+
+        # Check if email already exists for another fixer
+        cursor.execute("SELECT id FROM fixers WHERE LOWER(email) = LOWER(%s) AND id != %s", (fixer.get('email'), fixer_id))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Fixer email already exists"}
+
+        # Check if phone already exists for another fixer
+        cursor.execute("SELECT id FROM fixers WHERE phone = %s AND id != %s", (fixer.get('phone'), fixer_id))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Fixer phone already exists"}
+
         cursor.execute("""
             UPDATE fixers 
             SET name = %s, email = %s, phone = %s, department = %s

@@ -77,10 +77,24 @@ export default function Fixers() {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check for duplicate name
+    const existingFixerByName = fixers.find(f => f.name.toLowerCase() === formData.name.toLowerCase());
+    if (existingFixerByName) {
+      alert('A fixer with this name already exists.');
+      return;
+    }
+    
     // Check for duplicate email
-    const existingFixer = fixers.find(f => f.email === formData.email);
+    const existingFixer = fixers.find(f => f.email.toLowerCase() === formData.email.toLowerCase());
     if (existingFixer) {
       alert('A fixer with this email already exists.');
+      return;
+    }
+
+    // Check for duplicate phone
+    const existingFixerByPhone = fixers.find(f => f.phone === formData.phone);
+    if (existingFixerByPhone) {
+      alert('A fixer with this phone number already exists.');
       return;
     }
     
@@ -138,10 +152,24 @@ export default function Fixers() {
     e.preventDefault();
     if (!selectedFixer) return;
 
+    // Check for duplicate name (excluding current fixer)
+    const existingFixerByName = fixers.find(f => f.name.toLowerCase() === editFormData.name.toLowerCase() && f.id !== selectedFixer.id);
+    if (existingFixerByName) {
+      alert('A fixer with this name already exists.');
+      return;
+    }
+
     // Check for duplicate email (excluding current fixer)
-    const existingFixer = fixers.find(f => f.email === editFormData.email && f.id !== selectedFixer.id);
+    const existingFixer = fixers.find(f => f.email.toLowerCase() === editFormData.email.toLowerCase() && f.id !== selectedFixer.id);
     if (existingFixer) {
-      alert('Another fixer with this email already exists.');
+      alert('A fixer with this email already exists.');
+      return;
+    }
+
+    // Check for duplicate phone (excluding current fixer)
+    const existingFixerByPhone = fixers.find(f => f.phone === editFormData.phone && f.id !== selectedFixer.id);
+    if (existingFixerByPhone) {
+      alert('A fixer with this phone number already exists.');
       return;
     }
 

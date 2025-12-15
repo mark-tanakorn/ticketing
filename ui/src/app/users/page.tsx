@@ -82,10 +82,24 @@ export default function Users() {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Check for duplicate name
+    const existingUserByName = users.find(u => u.name.toLowerCase() === formData.name.toLowerCase());
+    if (existingUserByName) {
+      alert('A user with this name already exists.');
+      return;
+    }
+    
     // Check for duplicate email
-    const existingUser = users.find(u => u.email === formData.email);
+    const existingUser = users.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
     if (existingUser) {
       alert('A user with this email already exists.');
+      return;
+    }
+
+    // Check for duplicate phone
+    const existingUserByPhone = users.find(u => u.phone === formData.phone);
+    if (existingUserByPhone) {
+      alert('A user with this phone number already exists.');
       return;
     }
     
@@ -146,10 +160,24 @@ export default function Users() {
     e.preventDefault();
     if (!selectedUser) return;
 
+    // Check for duplicate name (excluding current user)
+    const existingUserByName = users.find(u => u.name.toLowerCase() === editFormData.name.toLowerCase() && u.id !== selectedUser.id);
+    if (existingUserByName) {
+      alert('A user with this name already exists.');
+      return;
+    }
+
     // Check for duplicate email (excluding current user)
-    const existingUser = users.find(u => u.email === editFormData.email && u.id !== selectedUser.id);
+    const existingUser = users.find(u => u.email.toLowerCase() === editFormData.email.toLowerCase() && u.id !== selectedUser.id);
     if (existingUser) {
-      alert('Another user with this email already exists.');
+      alert('A user with this email already exists.');
+      return;
+    }
+
+    // Check for duplicate phone (excluding current user)
+    const existingUserByPhone = users.find(u => u.phone === editFormData.phone && u.id !== selectedUser.id);
+    if (existingUserByPhone) {
+      alert('A user with this phone number already exists.');
       return;
     }
 
