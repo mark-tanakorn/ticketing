@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import * as XLSX from 'xlsx';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -77,7 +78,19 @@ const getSLATimeLeft = (dateCreated: string, severity: string) => {
   const timeLeftMs = breachDate.getTime() - now.getTime();
   
   if (timeLeftMs <= 0) {
-    return { breached: true, timeLeft: 'SLA BREACHED' };
+    // Calculate how many days, hours, minutes past breach
+    const breachMs = Math.abs(timeLeftMs);
+    const breachDays = Math.floor(breachMs / (1000 * 60 * 60 * 24));
+    const breachHours = Math.floor((breachMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const breachMinutes = Math.floor((breachMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return { 
+      breached: true, 
+      timeLeft: `SLA BREACHED (${breachDays}d ${breachHours}h ${breachMinutes}m ago)`,
+      breachDays,
+      breachHours,
+      breachMinutes
+    };
   }
 
   const hours = Math.floor(timeLeftMs / (1000 * 60 * 60));
@@ -553,6 +566,24 @@ export default function Home() {
     }
   };
 
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(filteredAndSortedTickets.map(ticket => ({
+      ID: ticket.id,
+      Title: ticket.title,
+      Description: ticket.description,
+      Category: ticket.category,
+      Severity: ticket.severity,
+      'Date Created': ticket.date_created,
+      Status: ticket.status,
+      'Attachment Upload': ticket.attachment_upload,
+      Approver: ticket.approver,
+      Fixer: ticket.fixer
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Tickets');
+    XLSX.writeFile(workbook, 'tickets.xlsx');
+  };
+
   const chartData = useMemo(() => {
     if (!tickets || !tickets.length) return { severity: [], status: [], monthly: [] };
 
@@ -604,12 +635,20 @@ export default function Home() {
       <div className="flex-1 p-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Ticketing System Dashboard</h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Create Ticket
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={exportToExcel}
+              className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Export to Excel
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Create Ticket
+            </button>
+          </div>
         </div>
 
         {/* Cards with Charts */}
@@ -654,7 +693,7 @@ export default function Home() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
-                <Tooltip />
+                <Tooltip animationDuration={0} />
                 <Line type="monotone" dataKey="value" stroke="#8884d8" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>

@@ -78,7 +78,7 @@ def add_sample_data():
         print("Adding sample data to tickets table...")
 
         # Generate 50 sample tickets with variations
-        for i in range(50):
+        for i in range(100):
             # Generate random ID
             ticket_id = random.randint(100000, 999999)
 
@@ -93,7 +93,7 @@ def add_sample_data():
             attachment = random.choice(attachments)
 
             # Random date within last 90 days (in local time for display)
-            days_ago = random.randint(0, 5)
+            days_ago = random.randint(0, 90)
             date_created = datetime.now() - timedelta(days=days_ago)
 
             # Insert the ticket
