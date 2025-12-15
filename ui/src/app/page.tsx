@@ -650,9 +650,8 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-4">Navigation</h2>
         <ul>
           <li className="mb-2"><a href="#" className="hover:text-gray-300">Dashboard</a></li>
-          <li className="mb-2"><a href="/tickets" className="hover:text-gray-300">Tickets</a></li>
-          <li className="mb-2"><a href="/users" className="hover:text-gray-300">Users</a></li>
-          <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Fixers</a></li>
+          <li className="mb-2"><a href="/users" className="hover:text-gray-300">Approvers</a></li>
+          <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Engineers</a></li>
         </ul>
       </div>
 

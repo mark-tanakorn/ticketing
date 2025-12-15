@@ -235,15 +235,15 @@ export default function Users() {
         <h2 className="text-xl font-bold mb-4">Navigation</h2>
         <ul>
           <li className="mb-2"><a href="/" className="hover:text-gray-300">Dashboard</a></li>
-          <li className="mb-2"><a href="/users" className="hover:text-gray-300">Users</a></li>
-          <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Fixers</a></li>
+          <li className="mb-2"><a href="/users" className="hover:text-gray-300">Approvers</a></li>
+          <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Engineers</a></li>
         </ul>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 p-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Users</h1>
+          <h1 className="text-3xl font-bold">Approvers</h1>
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
