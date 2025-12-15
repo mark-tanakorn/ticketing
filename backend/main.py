@@ -79,6 +79,70 @@ async def get_users_by_department(department: str):
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/users")
+async def get_all_users():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT id, name, phone, email, department, approval_tier FROM users ORDER BY id")
+        users = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return {"users": users}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/users")
+async def create_user(user: dict):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get the next sequential ID (not auto-increment)
+        cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM users")
+        next_id = cursor.fetchone()[0]
+
+        cursor.execute("""
+            INSERT INTO users (id, name, phone, email, department, approval_tier)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (next_id, user.get('name'), user.get('phone'), user.get('email'), user.get('department'), user.get('approval_tier')))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "User created successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.put("/users/{user_id}")
+async def update_user(user_id: int, user: dict):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users 
+            SET name = %s, phone = %s, email = %s, department = %s, approval_tier = %s
+            WHERE id = %s
+        """, (user.get('name'), user.get('phone'), user.get('email'), user.get('department'), user.get('approval_tier'), user_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "User updated successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.delete("/users/{user_id}")
+async def delete_user(user_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "User deleted successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/tickets")
 async def get_tickets():
     try:
