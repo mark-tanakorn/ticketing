@@ -57,6 +57,28 @@ async def startup_event():
     except Exception as e:
         print(f"DB setup error: {e}")
 
+# Create fixers table if it doesn't exist
+@app.on_event("startup")
+async def create_fixers_table():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS fixers (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                phone VARCHAR(50),
+                department VARCHAR(255)
+            );
+        """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("Fixers table checked/created successfully")
+    except Exception as e:
+        print(f"DB setup error for fixers table: {e}")
+
 # Basic route
 @app.get("/")
 async def root():
@@ -293,5 +315,73 @@ async def delete_ticket(ticket_id: int):
         cursor.close()
         conn.close()
         return {"message": "Ticket deleted successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+# Get all fixers
+@app.get("/fixers")
+async def get_all_fixers():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute("SELECT id, name, email, phone, department FROM fixers ORDER BY id")
+        fixers = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return {"fixers": fixers}
+    except Exception as e:
+        return {"error": str(e)}
+
+# Create a new fixer
+@app.post("/fixers")
+async def create_fixer(fixer: dict):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get the next sequential ID (not auto-increment)
+        cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM fixers")
+        next_id = cursor.fetchone()[0]
+
+        cursor.execute("""
+            INSERT INTO fixers (id, name, email, phone, department)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (next_id, fixer.get('name'), fixer.get('email'), fixer.get('phone'), fixer.get('department')))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "Fixer created successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+# Update a fixer
+@app.put("/fixers/{fixer_id}")
+async def update_fixer(fixer_id: int, fixer: dict):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE fixers 
+            SET name = %s, email = %s, phone = %s, department = %s
+            WHERE id = %s
+        """, (fixer.get('name'), fixer.get('email'), fixer.get('phone'), fixer.get('department'), fixer_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "Fixer updated successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+# Delete a fixer
+@app.delete("/fixers/{fixer_id}")
+async def delete_fixer(fixer_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM fixers WHERE id = %s", (fixer_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "Fixer deleted successfully"}
     except Exception as e:
         return {"error": str(e)}

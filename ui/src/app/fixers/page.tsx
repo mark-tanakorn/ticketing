@@ -2,35 +2,32 @@
 
 import { useEffect, useState, useMemo } from 'react';
 
-interface User {
+interface Fixer {
   id: number;
   name: string;
-  phone: string;
   email: string;
+  phone: string;
   department: string;
-  approval_tier: number;
 }
 
-export default function Users() {
-  const [users, setUsers] = useState<User[]>([]);
+export default function Fixers() {
+  const [fixers, setFixers] = useState<Fixer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedFixer, setSelectedFixer] = useState<Fixer | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     email: '',
-    department: '',
-    approval_tier: '1'
+    department: ''
   });
   const [editFormData, setEditFormData] = useState({
     name: '',
     phone: '',
     email: '',
-    department: '',
-    approval_tier: '1'
+    department: ''
   });
 
   // Check if create form is valid (all fields must be filled)
@@ -38,8 +35,7 @@ export default function Users() {
     return formData.name.trim() !== '' &&
            formData.phone.trim() !== '' &&
            formData.email.trim() !== '' &&
-           formData.department !== '' &&
-           formData.approval_tier !== '';
+           formData.department !== '';
   }, [formData]);
 
   // Check if edit form is valid (all fields must be filled)
@@ -47,26 +43,25 @@ export default function Users() {
     return editFormData.name.trim() !== '' &&
            editFormData.phone.trim() !== '' &&
            editFormData.email.trim() !== '' &&
-           editFormData.department !== '' &&
-           editFormData.approval_tier !== '';
+           editFormData.department !== '';
   }, [editFormData]);
 
   useEffect(() => {
-    fetchUsers();
+    fetchFixers();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchFixers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/users');
+      const response = await fetch('http://localhost:8000/fixers');
       const data = await response.json();
       if (response.ok) {
-        setUsers(data.users || []);
+        setFixers(data.fixers || []);
       } else {
-        setError(data.error || 'Failed to fetch users');
+        setError(data.error || 'Failed to fetch fixers');
       }
     } catch (err) {
-      setError('Failed to fetch users');
+      setError('Failed to fetch fixers');
     } finally {
       setLoading(false);
     }
@@ -83,14 +78,14 @@ export default function Users() {
     e.preventDefault();
     
     // Check for duplicate email
-    const existingUser = users.find(u => u.email === formData.email);
-    if (existingUser) {
-      alert('A user with this email already exists.');
+    const existingFixer = fixers.find(f => f.email === formData.email);
+    if (existingFixer) {
+      alert('A fixer with this email already exists.');
       return;
     }
     
     try {
-      const response = await fetch('http://localhost:8000/users', {
+      const response = await fetch('http://localhost:8000/fixers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -99,8 +94,7 @@ export default function Users() {
           name: formData.name,
           phone: formData.phone,
           email: formData.email,
-          department: formData.department,
-          approval_tier: parseInt(formData.approval_tier)
+          department: formData.department
         })
       });
       const data = await response.json();
@@ -109,11 +103,10 @@ export default function Users() {
           name: '',
           phone: '',
           email: '',
-          department: '',
-          approval_tier: '1'
+          department: ''
         });
-        // Refresh users list
-        fetchUsers();
+        // Refresh fixers list
+        fetchFixers();
         setShowCreateModal(false);
       } else {
         // Error handled silently
@@ -123,14 +116,13 @@ export default function Users() {
     }
   };
 
-  const handleRowClick = (user: User) => {
-    setSelectedUser(user);
+  const handleRowClick = (fixer: Fixer) => {
+    setSelectedFixer(fixer);
     setEditFormData({
-      name: user.name,
-      phone: user.phone || '',
-      email: user.email,
-      department: user.department || '',
-      approval_tier: user.approval_tier.toString()
+      name: fixer.name,
+      phone: fixer.phone || '',
+      email: fixer.email,
+      department: fixer.department || ''
     });
     setShowEditModal(true);
   };
@@ -144,17 +136,17 @@ export default function Users() {
 
   const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUser) return;
+    if (!selectedFixer) return;
 
-    // Check for duplicate email (excluding current user)
-    const existingUser = users.find(u => u.email === editFormData.email && u.id !== selectedUser.id);
-    if (existingUser) {
-      alert('Another user with this email already exists.');
+    // Check for duplicate email (excluding current fixer)
+    const existingFixer = fixers.find(f => f.email === editFormData.email && f.id !== selectedFixer.id);
+    if (existingFixer) {
+      alert('Another fixer with this email already exists.');
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/users/${selectedUser.id}`, {
+      const response = await fetch(`http://localhost:8000/fixers/${selectedFixer.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -163,13 +155,12 @@ export default function Users() {
           name: editFormData.name,
           phone: editFormData.phone,
           email: editFormData.email,
-          department: editFormData.department,
-          approval_tier: parseInt(editFormData.approval_tier)
+          department: editFormData.department
         })
       });
       const data = await response.json();
       if (response.ok) {
-        fetchUsers();
+        fetchFixers();
         setShowEditModal(false);
       } else {
         // Error handled silently
@@ -179,20 +170,20 @@ export default function Users() {
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
+  const handleDeleteFixer = async () => {
+    if (!selectedFixer) return;
 
-    if (!confirm(`Are you sure you want to delete ${selectedUser.name}?`)) {
+    if (!confirm(`Are you sure you want to delete ${selectedFixer.name}?`)) {
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/users/${selectedUser.id}`, {
+      const response = await fetch(`http://localhost:8000/fixers/${selectedFixer.id}`, {
         method: 'DELETE'
       });
       const data = await response.json();
       if (response.ok) {
-        fetchUsers();
+        fetchFixers();
         setShowEditModal(false);
       } else {
         // Error handled silently
@@ -204,13 +195,12 @@ export default function Users() {
 
   const closeEditModal = () => {
     setShowEditModal(false);
-    setSelectedUser(null);
+    setSelectedFixer(null);
     setEditFormData({
       name: '',
       phone: '',
       email: '',
-      department: '',
-      approval_tier: '1'
+      department: ''
     });
   };
 
@@ -220,12 +210,11 @@ export default function Users() {
       name: '',
       phone: '',
       email: '',
-      department: '',
-      approval_tier: '1'
+      department: ''
     });
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading users...</div>;
+  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading fixers...</div>;
   if (error) return <div className="flex items-center justify-center min-h-screen text-red-600">Error: {error}</div>;
 
   return (
@@ -243,19 +232,19 @@ export default function Users() {
       {/* Main Content */}
       <div className="flex-1 p-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Users</h1>
+          <h1 className="text-3xl font-bold">Fixers</h1>
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            Create User
+            Create Fixer
           </button>
         </div>
 
-        {/* Users Table */}
+        {/* Fixers Table */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <div className="p-3 bg-gray-100">
-            <h2 className="text-xl font-semibold">All Users</h2>
+            <h2 className="text-xl font-semibold">All Fixers</h2>
           </div>
           <div className="overflow-x-auto max-h-[calc(100vh-490px)] overflow-y-auto">
             <table className="w-full table-fixed">
@@ -266,22 +255,20 @@ export default function Users() {
                   <th className="px-4 py-2 text-left w-2/6">Email</th>
                   <th className="px-4 py-2 text-left w-1/6">Phone</th>
                   <th className="px-4 py-2 text-left w-1/6">Department</th>
-                  <th className="px-4 py-2 text-left w-1/6">Approval Tier</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {fixers.map((fixer) => (
                   <tr
-                    key={user.id}
+                    key={fixer.id}
                     className="border-t hover:bg-gray-50 cursor-pointer"
-                    onClick={() => handleRowClick(user)}
+                    onClick={() => handleRowClick(fixer)}
                   >
-                    <td className="px-4 py-2 truncate">{user.id}</td>
-                    <td className="px-4 py-2 truncate">{user.name}</td>
-                    <td className="px-4 py-2 truncate">{user.email}</td>
-                    <td className="px-4 py-2 truncate">{user.phone || '-'}</td>
-                    <td className="px-4 py-2 truncate">{user.department || '-'}</td>
-                    <td className="px-4 py-2 truncate">{user.approval_tier || '-'}</td>
+                    <td className="px-4 py-2 truncate">{fixer.id}</td>
+                    <td className="px-4 py-2 truncate">{fixer.name}</td>
+                    <td className="px-4 py-2 truncate">{fixer.email}</td>
+                    <td className="px-4 py-2 truncate">{fixer.phone || '-'}</td>
+                    <td className="px-4 py-2 truncate">{fixer.department || '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -289,12 +276,12 @@ export default function Users() {
           </div>
         </div>
 
-        {/* Create User Modal */}
+        {/* Create Fixer Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[100vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">Create New User</h2>
+                <h2 className="text-2xl font-bold">Create New Fixer</h2>
                 <button
                   onClick={closeCreateModal}
                   className="text-gray-500 hover:text-gray-700 text-2xl"
@@ -328,7 +315,7 @@ export default function Users() {
                     />
                   </div>
 
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                     <input
                       type="email"
@@ -355,20 +342,6 @@ export default function Users() {
                       <option value="Operations">Operations</option>
                     </select>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Approval Tier</label>
-                    <select
-                      name="approval_tier"
-                      value={formData.approval_tier}
-                      onChange={handleFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                    </select>
-                  </div>
                 </div>
 
                 <div className="flex justify-end space-x-4 mt-6">
@@ -388,7 +361,7 @@ export default function Users() {
                         : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     }`}
                   >
-                    Create User
+                    Create Fixer
                   </button>
                 </div>
               </form>
@@ -396,11 +369,11 @@ export default function Users() {
           </div>
         )}
 
-        {/* Edit User Modal */}
-        {showEditModal && selectedUser && (
+        {/* Edit Fixer Modal */}
+        {showEditModal && selectedFixer && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold mb-6">Edit User</h2>
+              <h2 className="text-2xl font-bold mb-6">Edit Fixer</h2>
               <form onSubmit={handleEditFormSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -453,29 +426,15 @@ export default function Users() {
                       <option value="Operations">Operations</option>
                     </select>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Approval Tier</label>
-                    <select
-                      name="approval_tier"
-                      value={editFormData.approval_tier}
-                      onChange={handleEditFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                    </select>
-                  </div>
                 </div>
 
                 <div className="flex justify-between space-x-4 mt-6">
                   <button
                     type="button"
-                    onClick={handleDeleteUser}
+                    onClick={handleDeleteFixer}
                     className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                   >
-                    Delete User
+                    Delete Fixer
                   </button>
                   <div className="flex space-x-4">
                     <button
@@ -494,7 +453,7 @@ export default function Users() {
                           : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                       }`}
                     >
-                      Update User
+                      Update Fixer
                     </button>
                   </div>
                 </div>

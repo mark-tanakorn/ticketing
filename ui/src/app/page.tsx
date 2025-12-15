@@ -124,6 +124,14 @@ interface User {
   approval_tier: string;
 }
 
+interface Fixer {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  department: string;
+}
+
 export default function Home() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +141,7 @@ export default function Home() {
   const [modalMode, setModalMode] = useState<'details' | 'edit'>('details');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [fixers, setFixers] = useState<Fixer[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -183,6 +192,7 @@ export default function Home() {
   }, [editFormData]);
 
   useEffect(() => {
+    // Fetch tickets
     fetch('http://localhost:8000/tickets')
       .then((res) => res.json())
       .then((data) => {
@@ -193,6 +203,17 @@ export default function Home() {
         console.error('Error fetching tickets:', err);
         setTickets([]);
         setLoading(false);
+      });
+
+    // Fetch fixers
+    fetch('http://localhost:8000/fixers')
+      .then((res) => res.json())
+      .then((data) => {
+        setFixers(data.fixers || []);
+      })
+      .catch((err) => {
+        console.error('Error fetching fixers:', err);
+        setFixers([]);
       });
   }, []);
 
@@ -627,7 +648,9 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-4">Navigation</h2>
         <ul>
           <li className="mb-2"><a href="#" className="hover:text-gray-300">Dashboard</a></li>
+          <li className="mb-2"><a href="/tickets" className="hover:text-gray-300">Tickets</a></li>
           <li className="mb-2"><a href="/users" className="hover:text-gray-300">Users</a></li>
+          <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Fixers</a></li>
         </ul>
       </div>
 
@@ -966,13 +989,19 @@ export default function Home() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
-                  <input
-                    type="text"
+                  <select
                     name="assigned_to"
                     value={formData.assigned_to}
                     onChange={handleFormChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Select Fixer</option>
+                    {fixers.map((fixer) => (
+                      <option key={fixer.id} value={fixer.name}>
+                        {fixer.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="md:col-span-3">
@@ -1263,13 +1292,19 @@ export default function Home() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
-                  <input
-                    type="text"
+                  <select
                     name="assigned_to"
                     value={editFormData.assigned_to}
                     onChange={handleEditFormChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Select Fixer</option>
+                    {fixers.map((fixer) => (
+                      <option key={fixer.id} value={fixer.name}>
+                        {fixer.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="md:col-span-3">
