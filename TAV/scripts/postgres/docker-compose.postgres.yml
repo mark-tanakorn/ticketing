@@ -1,0 +1,68 @@
+version: '3.8'
+
+# PostgreSQL Database for Ticketing System
+# Simple standalone PostgreSQL setup with pgAdmin for database management
+#
+# Usage:
+#   Start:  docker-compose -f docker-compose.postgres.yml up -d
+#   Stop:   docker-compose -f docker-compose.postgres.yml down
+#   Logs:   docker-compose -f docker-compose.postgres.yml logs -f
+#
+# Access:
+#   PostgreSQL: localhost:5432
+#   pgAdmin:    http://localhost:5050 (admin@admin.com / admin)
+
+services:
+  # PostgreSQL Database
+  postgres-ticketing:
+    image: postgres:16-alpine
+    container_name: postgres-ticketing
+    environment:
+      POSTGRES_DB: ticketing
+      POSTGRES_USER: ticketing_user
+      POSTGRES_PASSWORD: ticketing_pass
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketing_user -d ticketing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ticketing-network
+
+  # pgAdmin for Database Management (Optional but useful)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin-ticketing
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres-ticketing:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ticketing-network
+
+volumes:
+  postgres_data:
+    name: ticketing_postgres_data
+  pgadmin_data:
+    name: ticketing_pgadmin_data
+
+networks:
+  ticketing-network:
+    name: ticketing-network
+    driver: bridge
+

@@ -1,0 +1,87 @@
+version: '3.8'
+
+name: tav_local
+
+# TAV Engine - LAN/WiFi Access with Docker
+# Use this when you want others on your WiFi to access TAV Engine
+# Setup time: ~5-10 minutes
+# Access: http://YOUR_IP:${FRONTEND_PORT:-3000} (e.g. http://192.168.1.100:3000)
+#
+# Port Configuration (via .env file in project root):
+#   BACKEND_PORT  - Backend API port (default: 5000)
+#   FRONTEND_PORT - Frontend port (default: 3000)
+#   LAN_IP        - Your local network IP address
+#
+# Just create a .env file in the project root with your settings!
+
+# Read from unified .env in project root
+env_file:
+  - ../../.env
+
+services:
+  # Backend API with SQLite
+  backend:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    container_name: tav-backend
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=sqlite:///./data/tav_engine.db
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key-change-prod-32b}
+      - ENABLE_DEV_MODE=${ENABLE_DEV_MODE:-true}
+      - BACKEND_PORT=${BACKEND_PORT:-5000}
+      - FRONTEND_PORT=${FRONTEND_PORT:-3000}
+      - BASE_URL=http://${LAN_IP:-192.168.1.100}:${FRONTEND_PORT:-3000}
+      # CORS - Allow both localhost and LAN IP access
+      - CORS_ORIGINS=["http://localhost:${FRONTEND_PORT:-3000}","http://localhost:${BACKEND_PORT:-5000}","http://${LAN_IP:-192.168.1.100}:${FRONTEND_PORT:-3000}","http://${LAN_IP:-192.168.1.100}:${BACKEND_PORT:-5000}","http://127.0.0.1:${FRONTEND_PORT:-3000}","http://127.0.0.1:${BACKEND_PORT:-5000}"]
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "${BACKEND_PORT:-5000}:${BACKEND_PORT:-5000}"  # Accessible on all network interfaces
+    volumes:
+      - ../../backend/data:/app/data
+      - ../../backend/app:/app/app
+    command: >
+      sh -c "
+      echo '🔧 Running database migrations...' &&
+      alembic upgrade head &&
+      echo '🚀 Starting backend server on 0.0.0.0:${BACKEND_PORT:-5000}...' &&
+      uvicorn app.main:app --host 0.0.0.0 --port ${BACKEND_PORT:-5000} --reload
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${BACKEND_PORT:-5000}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ../../ui
+      dockerfile: Dockerfile.dev
+    container_name: tav-frontend
+    environment:
+      # Use LAN_IP for API URL with configurable port
+      - NEXT_PUBLIC_BACKEND_PORT=${BACKEND_PORT:-5000}
+      - NEXT_PUBLIC_API_URL=http://${LAN_IP:-192.168.1.100}:${BACKEND_PORT:-5000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:${FRONTEND_PORT:-3000}"  # Accessible on all network interfaces
+    volumes:
+      - ../../ui/src:/app/src
+      - ../../ui/public:/app/public
+      - ui_node_modules:/app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    command: npm run dev -- --hostname 0.0.0.0 --port ${FRONTEND_PORT:-3000}
+
+volumes:
+  ui_node_modules:
+
+networks:
+  default:
+    name: tav-lan
+
+

@@ -338,6 +338,90 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
     except Exception as e:
         return {"error": str(e)}
 
+
+class TicketStatusPayload(BaseModel):
+    status: str | None = None
+    fixer: str | None = None
+
+
+@app.post("/tickets/{ticket_id}/status")
+async def update_ticket_status(ticket_id: int, payload: TicketStatusPayload | None = None):
+    """
+    Update ticket status (separate from approval callback).
+
+    Expected body:
+      { "status": "in_progress", "fixer": "Nick" }
+    """
+    try:
+        allowed_statuses = {
+            "open",
+            "in_progress",
+            "closed",
+            "awaiting_approval",
+            "approval_denied",
+            "sla_breached",
+        }
+        # If caller sends no body (common from some workflow tools), default to in_progress.
+        requested_status = payload.status if payload else None
+        new_status = (requested_status or "in_progress").strip().lower()
+        if new_status not in allowed_statuses:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status '{requested_status}'. Allowed: {sorted(allowed_statuses)}",
+            )
+
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        # Ensure ticket exists and check current status for basic transition safety
+        cursor.execute("SELECT id, status, fixer FROM tickets WHERE id = %s", (ticket_id,))
+        existing = cursor.fetchone()
+        if not existing:
+            cursor.close()
+            conn.close()
+            return {"error": f"Ticket {ticket_id} not found"}
+
+        # Do not allow moving a denied ticket into progress without re-opening
+        if existing.get("status") == "approval_denied" and new_status == "in_progress":
+            cursor.close()
+            conn.close()
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot move a denied ticket to in_progress. Re-open it first.",
+            )
+
+        # If marking in progress, ensure there's a fixer assigned (either existing or provided)
+        requested_fixer = payload.fixer if payload else None
+        fixer_to_set = requested_fixer if requested_fixer is not None else existing.get("fixer")
+        if new_status == "in_progress" and (fixer_to_set is None or str(fixer_to_set).strip() == ""):
+            cursor.close()
+            conn.close()
+            raise HTTPException(
+                status_code=400,
+                detail="fixer is required to set status=in_progress",
+            )
+
+        # Update
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE tickets
+            SET status = %s,
+                fixer = COALESCE(%s, fixer)
+            WHERE id = %s
+            """,
+            (new_status, requested_fixer, ticket_id),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return {"message": "Ticket status updated", "ticket_id": ticket_id, "status": new_status, "fixer": requested_fixer}
+    except HTTPException:
+        raise
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/tickets")
 async def create_ticket(ticket: dict):
     try:

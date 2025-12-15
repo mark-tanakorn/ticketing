@@ -170,6 +170,19 @@ export default function Home() {
   const [editUsers, setEditUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchColumns, setSearchColumns] = useState<(keyof Ticket | 'pic')[]>(['title', 'description', 'category', 'severity', 'status', 'pic']);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+
+  const refreshTickets = () => {
+    // Fetch tickets
+    fetch('http://localhost:8000/tickets')
+      .then((res) => res.json())
+      .then((data) => {
+        setTickets(data.tickets || []);
+      })
+      .catch((err) => {
+        console.error('Error fetching tickets:', err);
+      });
+  };
 
   // Check if create form is valid (all fields except attachment_upload must be filled)
   const isCreateFormValid = useMemo(() => {
@@ -219,6 +232,30 @@ export default function Home() {
         setFixers([]);
       });
   }, []);
+
+  const markInProgress = async () => {
+    if (!selectedTicket) return;
+    setStatusUpdating(true);
+    try {
+      const response = await fetch(`http://localhost:8000/tickets/${selectedTicket.id}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        alert(data?.detail || data?.error || 'Failed to update status');
+        return;
+      }
+
+      refreshTickets();
+      setSelectedTicket({ ...selectedTicket, status: 'in_progress' });
+    } catch (e) {
+      alert('Failed to update status');
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   const filteredAndSortedTickets = useMemo(() => {
     // First filter by search term
@@ -1086,6 +1123,18 @@ export default function Home() {
                 {modalMode === 'details' ? 'Ticket Details' : 'Edit Ticket'}
               </h2>
               <div className="flex items-center space-x-2">
+                {modalMode === 'details' && (selectedTicket.fixer || '').trim() !== '' && selectedTicket.status === 'open' && (
+                  <button
+                    onClick={markInProgress}
+                    disabled={statusUpdating}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      statusUpdating ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                    }`}
+                    title="Mark this ticket as In Progress"
+                  >
+                    Mark In Progress
+                  </button>
+                )}
                 <button
                   onClick={() => setModalMode(modalMode === 'details' ? 'edit' : 'details')}
                   className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors"
