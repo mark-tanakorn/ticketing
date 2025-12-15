@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import * as XLSX from 'xlsx';
+import Select from 'react-select';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
@@ -142,6 +143,7 @@ export default function Home() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [fixers, setFixers] = useState<Fixer[]>([]);
+  const fixerOptions = fixers.map(f => ({ value: f.name, label: f.name }));
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -989,19 +991,27 @@ export default function Home() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
-                  <select
-                    name="assigned_to"
-                    value={formData.assigned_to}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Fixer</option>
-                    {fixers.map((fixer) => (
-                      <option key={fixer.id} value={fixer.name}>
-                        {fixer.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    options={fixerOptions}
+                    value={fixerOptions.find(o => o.value === formData.assigned_to)}
+                    onChange={(selected) => setFormData({...formData, assigned_to: selected ? selected.value : ''})}
+                    placeholder="Select Fixer"
+                    maxMenuHeight={120}
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        border: '1px solid #d1d5db',
+                        borderRadius: '0.375rem',
+                        padding: '0.125rem',
+                        fontSize: '0.875rem',
+                        minHeight: '2.5rem'
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        fontSize: '0.875rem'
+                      })
+                    }}
+                  />
                 </div>
 
                 <div className="md:col-span-3">
@@ -1292,19 +1302,27 @@ export default function Home() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
-                  <select
-                    name="assigned_to"
-                    value={editFormData.assigned_to}
-                    onChange={handleEditFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Fixer</option>
-                    {fixers.map((fixer) => (
-                      <option key={fixer.id} value={fixer.name}>
-                        {fixer.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    options={fixerOptions}
+                    value={fixerOptions.find(o => o.value === editFormData.assigned_to)}
+                    onChange={(selected) => setEditFormData({...editFormData, assigned_to: selected ? selected.value : ''})}
+                    placeholder="Select Fixer"
+                    maxMenuHeight={120}
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        border: '1px solid #d1d5db',
+                        borderRadius: '0.375rem',
+                        padding: '0.125rem',
+                        fontSize: '0.875rem',
+                        minHeight: '2.5rem'
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        fontSize: '0.875rem'
+                      })
+                    }}
+                  />
                 </div>
 
                 <div className="md:col-span-3">
