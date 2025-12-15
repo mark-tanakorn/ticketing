@@ -115,6 +115,7 @@ interface Ticket {
   attachment_upload: string;
   approver: string;
   fixer: string;
+  approver_reply_text?: string;
 }
 
 interface User {
@@ -1133,8 +1134,10 @@ export default function Home() {
                   {selectedTicket.status === 'approval_denied' ? (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 min-h-[100px]">
-                        {/* Empty box for now */}
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 min-h-[100px] whitespace-pre-wrap">
+                        {selectedTicket.approver_reply_text?.trim()
+                          ? selectedTicket.approver_reply_text
+                          : 'No remarks provided'}
                       </div>
                     </div>
                   ) : (
