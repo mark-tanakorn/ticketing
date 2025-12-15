@@ -4,6 +4,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import random
 from datetime import datetime, timedelta
+import httpx
 
 app = FastAPI()
 
@@ -182,6 +183,19 @@ async def get_tickets():
     except Exception as e:
         return {"error": str(e)}
 
+# Add TAV constants and helper function
+TAV_BASE_URL = "http://192.168.118.23:5000"
+TAV_WORKFLOW_ID = "de51f0d2-31fb-448a-acfd-409586920ad8"
+
+async def trigger_tav_workflow(ticket_payload: dict) -> None:
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{TAV_WORKFLOW_ID}/execute"
+    body = {"trigger_data": ticket_payload}
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        # If TAV dev-mode is enabled, no Authorization header is needed.
+        r = await client.post(url, json=body)
+        r.raise_for_status()
+
 @app.post("/tickets")
 async def create_ticket(ticket: dict):
     try:
@@ -219,6 +233,35 @@ async def create_ticket(ticket: dict):
         conn.commit()
         cursor.close()
         conn.close()
+
+        # Fetch approver phone number from users table
+        approver_phone = None
+        if approver_name:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT phone FROM users WHERE name = %s LIMIT 1
+            """, (approver_name,))
+            result = cursor.fetchone()
+            if result:
+                approver_phone = result[0]
+            cursor.close()
+            conn.close()
+
+        # Craft the payload for TAV workflow
+        ticket_payload = {
+            "ticket_id": ticket_id,
+            "title": ticket.get("title"),
+            "description": ticket.get("description"),
+            "severity": ticket.get("severity"),
+            "date_created": current_time.isoformat(),
+            "approver": approver_name,
+            "approver_phone": approver_phone
+        }
+
+        # Trigger TAV workflow
+        await trigger_tav_workflow(ticket_payload)
+
         return {"message": "Ticket created successfully"}
     except Exception as e:
         return {"error": str(e)}
