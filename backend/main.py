@@ -152,6 +152,32 @@ async def get_tickets():
         tickets = cursor.fetchall()
         cursor.close()
         conn.close()
+        
+        # Helper function to check SLA breach
+        def is_sla_breached(date_created, severity):
+            sla_hours = {
+                'low': 72,
+                'medium': 48,
+                'high': 24,
+                'critical': 4
+            }
+            hours = sla_hours.get(severity.lower(), 72)
+            breach_time = date_created + timedelta(hours=hours)
+            current_time = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
+            return current_time > breach_time
+        
+        # Check and update SLA breaches
+        for ticket in tickets:
+            if ticket['status'] != 'sla_breached' and is_sla_breached(ticket['date_created'], ticket['severity']):
+                # Update status in database
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("UPDATE tickets SET status = 'sla_breached' WHERE id = %s", (ticket['id'],))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                ticket['status'] = 'sla_breached'  # Update in memory
+        
         return {"tickets": tickets}
     except Exception as e:
         return {"error": str(e)}

@@ -256,7 +256,7 @@ export default function Users() {
           <div className="p-3 bg-gray-100">
             <h2 className="text-xl font-semibold">All Users</h2>
           </div>
-          <div className="overflow-x-auto max-h-[calc(100vh-470px)] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-490px)] overflow-y-auto">
             <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>

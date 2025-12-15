@@ -60,6 +60,37 @@ const renderCustomLabel = ({ cx, cy, midAngle = 0, innerRadius, outerRadius, val
   );
 };
 
+// SLA calculation function
+const getSLATimeLeft = (dateCreated: string, severity: string) => {
+  const slaHours = {
+    'low': 72,
+    'medium': 48,
+    'high': 24,
+    'critical': 4
+  };
+
+  const createdDate = new Date(dateCreated);
+  const slaMs = slaHours[severity.toLowerCase() as keyof typeof slaHours] * 60 * 60 * 1000;
+  const breachDate = new Date(createdDate.getTime() + slaMs);
+  const now = new Date();
+
+  const timeLeftMs = breachDate.getTime() - now.getTime();
+  
+  if (timeLeftMs <= 0) {
+    return { breached: true, timeLeft: 'SLA BREACHED' };
+  }
+
+  const hours = Math.floor(timeLeftMs / (1000 * 60 * 60));
+  const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+  
+  return {
+    breached: false,
+    timeLeft: `${hours}h ${minutes}m`,
+    hours,
+    minutes
+  };
+};
+
 interface Ticket {
   id: number;
   title: string;
@@ -86,6 +117,7 @@ export default function Home() {
   const [sortConfig, setSortConfig] = useState<{ column: keyof Ticket | 'pic' | null; direction: 'asc' | 'desc' }>({ column: null, direction: 'asc' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [modalMode, setModalMode] = useState<'details' | 'edit'>('details');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [formData, setFormData] = useState({
@@ -284,6 +316,7 @@ export default function Home() {
 
   const handleRowClick = (ticket: Ticket) => {
     setSelectedTicket(ticket);
+    setModalMode('details'); // Start with details view
     
     // Start with basic fields
     let initialFormData = {
@@ -747,7 +780,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-          <div className="overflow-x-auto max-h-[calc(100vh-470px)] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-490px)] overflow-y-auto">
             <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>
@@ -972,17 +1005,125 @@ export default function Home() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[100vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Edit Ticket</h2>
-              <button
-                onClick={closeEditModal}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
-              >
-                ×
-              </button>
+              <h2 className="text-2xl font-bold">
+                {modalMode === 'details' ? 'Ticket Details' : 'Edit Ticket'}
+              </h2>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setModalMode(modalMode === 'details' ? 'edit' : 'details')}
+                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors"
+                >
+                  {modalMode === 'details' ? 'Edit' : 'Details'}
+                </button>
+                <button
+                  onClick={closeEditModal}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleEditFormSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {modalMode === 'details' ? (
+              // Details View
+              <div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {selectedTicket.title}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {selectedTicket.category || 'N/A'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {formatter(selectedTicket.severity || 'low')}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {formatter(selectedTicket.status || 'open')}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Approver</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {selectedTicket.approver || 'Not assigned'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {selectedTicket.fixer || 'Not assigned'}
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 min-h-[100px] whitespace-pre-wrap">
+                      {selectedTicket.description || 'No description provided'}
+                    </div>
+                  </div>
+
+                  {selectedTicket.attachment_upload && (
+                    <div className="md:col-span-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Attachment</label>
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                        {selectedTicket.attachment_upload}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* SLA Countdown Section */}
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-semibold mb-4">SLA Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Created</label>
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                        {new Date(selectedTicket.date_created).toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">SLA Timeframe</label>
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                        {selectedTicket.severity === 'critical' ? '4 hours' :
+                         selectedTicket.severity === 'high' ? '24 hours' :
+                         selectedTicket.severity === 'medium' ? '48 hours' : '72 hours'}
+                      </div>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Time Left Until SLA Breach</label>
+                      <div className={`w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-bold ${
+                        getSLATimeLeft(selectedTicket.date_created, selectedTicket.severity).breached
+                          ? 'bg-red-100 text-red-800 border-red-300'
+                          : 'bg-gray-50 text-gray-700'
+                      }`}>
+                        {getSLATimeLeft(selectedTicket.date_created, selectedTicket.severity).timeLeft}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Edit Form View
+              <form onSubmit={handleEditFormSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
                   <input
@@ -1139,6 +1280,7 @@ export default function Home() {
                 </div>
               </div>
             </form>
+            )}
           </div>
         </div>
       )}
