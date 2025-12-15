@@ -59,7 +59,7 @@ def add_sample_data():
 
     categories = ["Network", "Software", "Hardware", "Access", "Security"]
     severities = ["low", "medium", "high", "critical"]
-    statuses = ["open", "in_progress", "awaiting_approval", "approval_denied", "closed", "sla_breached"]
+    statuses = ["open", "in_progress", "awaiting_approval", "approval_denied", "closed"]
     assigned_tos = [
         "network_team", "dev_team", "it_support", "security_team",
         "backend_team", "frontend_team", "qa_team", "ops_team",
@@ -93,7 +93,7 @@ def add_sample_data():
             attachment = random.choice(attachments)
 
             # Random date within last 90 days (in local time for display)
-            days_ago = random.randint(0, 90)
+            days_ago = random.randint(0, 5)
             date_created = datetime.now() - timedelta(days=days_ago)
 
             # Insert the ticket
