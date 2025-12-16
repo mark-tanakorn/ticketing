@@ -158,9 +158,9 @@ PUT /api/v1/settings/execution
 - `max_concurrent_runs_per_workflow` (1-50, default: 20): Max concurrent runs of same workflow
 
 **Timeouts:**
-- `default_timeout` (10-7200s, default: 300): Default node timeout
+- `default_timeout` (10-259200s, default: 300): Default node timeout
 - `http_timeout` (5-600s, default: 60): HTTP request timeout
-- `workflow_timeout` (60-86400s, default: 1800): Max workflow execution time
+- `workflow_timeout` (60-345600s, default: 1800): Max workflow execution time
 
 **Error Handling:**
 - `error_handling` ("stop_on_error" | "continue_on_error", default: "stop_on_error"): Error strategy

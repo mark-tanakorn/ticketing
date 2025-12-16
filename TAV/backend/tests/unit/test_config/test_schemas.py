@@ -59,9 +59,9 @@ class TestExecutionSettings:
     
     def test_timeout_validation(self):
         """Test timeout validation."""
-        # Valid range: 10-7200
+        # Valid range: 10-259200
         ExecutionSettings(default_timeout=10)  # Min
-        ExecutionSettings(default_timeout=7200)  # Max
+        ExecutionSettings(default_timeout=259200)  # Max
         
         # Invalid: too low
         with pytest.raises(ValidationError):
@@ -69,7 +69,7 @@ class TestExecutionSettings:
         
         # Invalid: too high
         with pytest.raises(ValidationError):
-            ExecutionSettings(default_timeout=7300)
+            ExecutionSettings(default_timeout=259201)
     
     def test_error_handling_validation(self):
         """Test error_handling enum validation."""

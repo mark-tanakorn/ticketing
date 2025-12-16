@@ -208,10 +208,10 @@ export default function SettingsDemo() {
                   type="number"
                   defaultValue="300"
                   min="10"
-                  max="7200"
+                  max="259200"
                   className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
                 />
-                <p className="text-xs text-gray-500 mt-3">Range: 10-7200 seconds</p>
+                <p className="text-xs text-gray-500 mt-3">Range: 10-259200 seconds</p>
               </div>
 
               <div className="bg-[#1a1a1a] rounded-lg p-6 border border-gray-800">
@@ -236,10 +236,10 @@ export default function SettingsDemo() {
                   type="number"
                   defaultValue="1800"
                   min="60"
-                  max="86400"
+                  max="345600"
                   className="w-full bg-[#0a0a0a] border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
                 />
-                <p className="text-xs text-gray-500 mt-3">Range: 60-86400 seconds</p>
+                <p className="text-xs text-gray-500 mt-3">Range: 60-345600 seconds</p>
               </div>
             </div>
 

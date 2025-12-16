@@ -51,7 +51,7 @@ class ExecutionSettings(BaseModel):
     default_timeout: int = Field(
         default=300, 
         ge=10, 
-        le=7200,
+        le=259200,
         description="Default node timeout (seconds)"
     )
     http_timeout: int = Field(
@@ -63,7 +63,7 @@ class ExecutionSettings(BaseModel):
     workflow_timeout: int = Field(
         default=1800, 
         ge=60, 
-        le=86400,
+        le=345600,
         description="Max workflow execution time (seconds)"
     )
     

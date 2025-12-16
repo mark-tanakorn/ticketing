@@ -22,9 +22,9 @@ allelExecutor.
 ### Timeouts & Limits
 | Field | Default | Range | Used In | Description |
 |-------|---------|-------|---------|-------------|
-| `default_timeout` | 300s | 10-7200s | **ParallelExecutor node execution** | Default node timeout |
+| `default_timeout` | 300s | 10-259200s | **ParallelExecutor node execution** | Default node timeout |
 | `http_timeout` | 60s | 5-600s | **HTTPRequestNode** | HTTP request timeout |
-| `workflow_timeout` | 1800s | 60-86400s | **ParallelExecutor overall** | Max workflow execution time |
+| `workflow_timeout` | 1800s | 60-345600s | **ParallelExecutor overall** | Max workflow execution time |
 
 ### Retry & Error Handling
 | Field | Default | Range | Used In | Description |

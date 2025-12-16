@@ -57,6 +57,11 @@ async def startup_event():
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS approver_reply_text TEXT;")
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS approver_decided_at TIMESTAMP;")
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS tav_execution_id TEXT;")
+
+        # Add SLA tracking columns (safe for existing DBs)
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS sla_reminder_sent_at TIMESTAMP;")
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS sla_breached_at TIMESTAMP;")
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS sla_started_at TIMESTAMP;")
         
         conn.commit()
         cursor.close()
@@ -226,31 +231,14 @@ async def get_tickets():
         tickets = cursor.fetchall()
         cursor.close()
         conn.close()
-        
-        # Helper function to check SLA breach
-        def is_sla_breached(date_created, severity):
-            sla_hours = {
-                'low': 72,
-                'medium': 48,
-                'high': 24,
-                'critical': 4
-            }
-            hours = sla_hours.get(severity.lower(), 72)
-            breach_time = date_created + timedelta(hours=hours)
-            current_time = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
-            return current_time > breach_time
-        
-        # Check and update SLA breaches
+
+        # Check and update SLA breaches (and trigger SLA breach workflow on first transition)
         for ticket in tickets:
-            if ticket['status'] != 'sla_breached' and is_sla_breached(ticket['date_created'], ticket['severity']):
-                # Update status in database
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("UPDATE tickets SET status = 'sla_breached' WHERE id = %s", (ticket['id'],))
-                conn.commit()
-                cursor.close()
-                conn.close()
-                ticket['status'] = 'sla_breached'  # Update in memory
+            # 1 hour before breach reminder
+            await _handle_sla_reminder_for_ticket_if_needed(ticket)
+            transitioned = await _handle_sla_breach_for_ticket_if_needed(ticket)
+            if transitioned:
+                ticket["status"] = "sla_breached"  # Update in memory
         
         return {"tickets": tickets}
     except Exception as e:
@@ -259,8 +247,20 @@ async def get_tickets():
 # Add TAV constants and helper function
 # For local dev, TAV typically runs at http://localhost:5000
 # Override via env vars if you're targeting a remote TAV instance.
-TAV_BASE_URL = os.getenv("TAV_BASE_URL", "http://localhost:5001")
-TAV_WORKFLOW_ID = os.getenv("TAV_WORKFLOW_ID", "31220e0d-1a92-40ae-8cbc-400f3ec1b469")
+TAV_BASE_URL = os.getenv("TAV_BASE_URL", "http://localhost:5000")
+TAV_WORKFLOW_ID = os.getenv("TAV_WORKFLOW_ID", "de51f0d2-31fb-448a-acfd-409586920ad8")
+# SLA workflows
+# - Reminder workflow default: b632cbb0-5543-408d-a086-4f0dcae48fc5
+# - Breach indicator workflow default: d01e23c4-82de-45a8-afad-5d30c30ca4ec
+# Backward compat: if older env var TAV_SLA_WORKFLOW_ID is set, it will be used as the reminder workflow.
+TAV_SLA_REMINDER_WORKFLOW_ID = os.getenv(
+    "TAV_SLA_REMINDER_WORKFLOW_ID",
+    os.getenv("TAV_SLA_WORKFLOW_ID", "b632cbb0-5543-408d-a086-4f0dcae48fc5"),
+)
+TAV_SLA_BREACH_WORKFLOW_ID = os.getenv(
+    "TAV_SLA_BREACH_WORKFLOW_ID",
+    "d01e23c4-82de-45a8-afad-5d30c30ca4ec",
+)
 
 async def trigger_tav_workflow(ticket_payload: dict) -> None:
     url = f"{TAV_BASE_URL}/api/v1/workflows/{TAV_WORKFLOW_ID}/execute"
@@ -270,6 +270,250 @@ async def trigger_tav_workflow(ticket_payload: dict) -> None:
         # If TAV dev-mode is enabled, no Authorization header is needed.
         r = await client.post(url, json=body)
         r.raise_for_status()
+
+async def trigger_tav_sla_reminder_workflow(ticket_payload: dict) -> None:
+    """
+    Trigger the SLA reminder workflow in TAV (separate workflow ID from ticket creation).
+    """
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{TAV_SLA_REMINDER_WORKFLOW_ID}/execute"
+    body = {"trigger_data": ticket_payload}
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.post(url, json=body)
+        r.raise_for_status()
+
+async def trigger_tav_sla_breach_indicator_workflow(ticket_payload: dict) -> None:
+    """
+    Trigger the SLA breach indicator workflow in TAV.
+    """
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{TAV_SLA_BREACH_WORKFLOW_ID}/execute"
+    body = {"trigger_data": ticket_payload}
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.post(url, json=body)
+        r.raise_for_status()
+
+
+def is_sla_breached(date_created, severity: str) -> bool:
+    """
+    Returns True if current time is past SLA breach time.
+    IMPORTANT: Uses get_sla_breach_time() so reminder + breach logic stay consistent
+    (including our CRITICAL test override).
+    """
+    breach_time = get_sla_breach_time(date_created, severity)
+    current_time = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
+    return current_time > breach_time
+
+
+def get_sla_breach_time(start_time, severity: str):
+    """
+    Compute SLA breach time.
+    """
+    sev = (severity or "").lower()
+
+    sla_hours = {
+        "low": 72,
+        "medium": 48,
+        "high": 24,
+        "critical": 4,
+    }
+    hours = sla_hours.get(sev, 72)
+    return start_time + timedelta(hours=hours)
+
+
+async def _handle_sla_reminder_for_ticket_if_needed(ticket: dict) -> bool:
+    """
+    If ticket is within 1 hour of SLA breach (but not yet breached), trigger TAV reminder once.
+    Returns True if it triggered during this call.
+    """
+    try:
+        if ticket.get("status") == "sla_breached":
+            return False
+
+        # If reminder already sent, do nothing.
+        if ticket.get("sla_reminder_sent_at"):
+            return False
+
+        # SLA should start counting once the ticket is in progress (sla_started_at).
+        # Fallback to date_created for older rows.
+        date_created = ticket.get("date_created")
+        sla_started_at = ticket.get("sla_started_at") or date_created
+        severity = ticket.get("severity")
+        if not sla_started_at:
+            return False
+
+        now = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
+        breach_time = get_sla_breach_time(sla_started_at, severity)
+        seconds_left = (breach_time - now).total_seconds()
+
+        # Trigger window: 1 hour before breach (3600s)
+        reminder_window_seconds = 3600
+
+        # Trigger only when breach is in the future and within the window.
+        if seconds_left <= 0 or seconds_left > reminder_window_seconds:
+            return False
+
+        reminder_sent_at = now
+
+        # Atomically mark reminder as sent to avoid duplicates.
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE tickets
+            SET sla_reminder_sent_at = %s
+            WHERE id = %s
+              AND status != 'sla_breached'
+              AND sla_reminder_sent_at IS NULL
+            """,
+            (reminder_sent_at, ticket.get("id")),
+        )
+        updated = cursor.rowcount
+        conn.commit()
+
+        if updated == 0:
+            cursor.close()
+            conn.close()
+            return False
+
+        # Enrich payload similarly to create_ticket
+        approver_name = ticket.get("approver")
+        fixer_name = ticket.get("fixer")
+
+        approver_phone = None
+        if approver_name:
+            cursor.execute("SELECT phone FROM users WHERE name = %s LIMIT 1", (approver_name,))
+            r = cursor.fetchone()
+            if r:
+                approver_phone = r[0]
+
+        fixer_phone = None
+        if fixer_name:
+            cursor.execute("SELECT phone FROM fixers WHERE name = %s LIMIT 1", (fixer_name,))
+            r = cursor.fetchone()
+            if r:
+                fixer_phone = r[0]
+
+        cursor.close()
+        conn.close()
+
+        dc = ticket.get("date_created")
+        date_created_iso = dc.isoformat() if hasattr(dc, "isoformat") else str(dc)
+
+        payload = {
+            "event": "sla_reminder",
+            "reminder_sent_at": reminder_sent_at.isoformat(),
+            "breach_time": breach_time.isoformat() if hasattr(breach_time, "isoformat") else str(breach_time),
+            "seconds_left": int(seconds_left),
+            "ticket_id": ticket.get("id"),
+            "title": ticket.get("title"),
+            "description": ticket.get("description"),
+            "severity": ticket.get("severity"),
+            "date_created": date_created_iso,
+            "sla_started_at": (
+                sla_started_at.isoformat() if hasattr(sla_started_at, "isoformat") else str(sla_started_at)
+            ),
+            "approver": approver_name,
+            "approver_phone": approver_phone,
+            "fixer": fixer_name,
+            "fixer_phone": fixer_phone,
+            "status": ticket.get("status"),
+        }
+
+        await trigger_tav_sla_reminder_workflow(payload)
+        return True
+    except Exception:
+        # Don't block /tickets if the workflow call fails; marking reminder sent prevents spam.
+        return True
+
+
+async def _handle_sla_breach_for_ticket_if_needed(ticket: dict) -> bool:
+    """
+    If ticket just breached SLA, atomically flip status to 'sla_breached' and trigger TAV workflow.
+    Returns True if it transitioned to 'sla_breached' during this call.
+    """
+    try:
+        if ticket.get("status") == "sla_breached":
+            return False
+
+        date_created = ticket.get("date_created")
+        sla_started_at = ticket.get("sla_started_at") or date_created
+        severity = ticket.get("severity")
+        if not sla_started_at or not is_sla_breached(sla_started_at, severity):
+            return False
+
+        breached_at = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
+
+        # Atomically transition to sla_breached to avoid duplicate workflow triggers.
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE tickets
+            SET status = 'sla_breached',
+                sla_breached_at = %s
+            WHERE id = %s
+              AND status != 'sla_breached'
+            """,
+            (breached_at, ticket.get("id")),
+        )
+        updated = cursor.rowcount
+        conn.commit()
+
+        if updated == 0:
+            cursor.close()
+            conn.close()
+            return False
+
+        # Enrich payload similarly to create_ticket
+        approver_name = ticket.get("approver")
+        fixer_name = ticket.get("fixer")
+
+        approver_phone = None
+        if approver_name:
+            cursor.execute("SELECT phone FROM users WHERE name = %s LIMIT 1", (approver_name,))
+            r = cursor.fetchone()
+            if r:
+                approver_phone = r[0]
+
+        fixer_phone = None
+        if fixer_name:
+            cursor.execute("SELECT phone FROM fixers WHERE name = %s LIMIT 1", (fixer_name,))
+            r = cursor.fetchone()
+            if r:
+                fixer_phone = r[0]
+
+        cursor.close()
+        conn.close()
+
+        dc = ticket.get("date_created")
+        date_created_iso = dc.isoformat() if hasattr(dc, "isoformat") else str(dc)
+        breach_time = get_sla_breach_time(sla_started_at, severity)
+
+        payload = {
+            "event": "sla_breached",
+            "breached_at": breached_at.isoformat(),
+            "breach_time": breach_time.isoformat() if hasattr(breach_time, "isoformat") else str(breach_time),
+            "ticket_id": ticket.get("id"),
+            "title": ticket.get("title"),
+            "description": ticket.get("description"),
+            "severity": ticket.get("severity"),
+            "date_created": date_created_iso,
+            "sla_started_at": (
+                sla_started_at.isoformat() if hasattr(sla_started_at, "isoformat") else str(sla_started_at)
+            ),
+            "approver": approver_name,
+            "approver_phone": approver_phone,
+            "fixer": fixer_name,
+            "fixer_phone": fixer_phone,
+            "status": "sla_breached",
+        }
+
+        await trigger_tav_sla_breach_indicator_workflow(payload)
+        return True
+    except Exception:
+        # Don't block /tickets if the workflow call fails; status flip is already persisted.
+        return True
 
 
 class TicketApprovalPayload(BaseModel):
@@ -401,17 +645,34 @@ async def update_ticket_status(ticket_id: int, payload: TicketStatusPayload | No
                 detail="fixer is required to set status=in_progress",
             )
 
-        # Update
+        # If moving into progress from a different state, start SLA timer now.
+        now = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
+        should_start_sla = existing.get("status") != "in_progress" and new_status == "in_progress"
+
         cursor = conn.cursor()
-        cursor.execute(
-            """
-            UPDATE tickets
-            SET status = %s,
-                fixer = COALESCE(%s, fixer)
-            WHERE id = %s
-            """,
-            (new_status, requested_fixer, ticket_id),
-        )
+        if should_start_sla:
+            cursor.execute(
+                """
+                UPDATE tickets
+                SET status = %s,
+                    fixer = COALESCE(%s, fixer),
+                    sla_started_at = %s,
+                    sla_reminder_sent_at = NULL,
+                    sla_breached_at = NULL
+                WHERE id = %s
+                """,
+                (new_status, requested_fixer, now, ticket_id),
+            )
+        else:
+            cursor.execute(
+                """
+                UPDATE tickets
+                SET status = %s,
+                    fixer = COALESCE(%s, fixer)
+                WHERE id = %s
+                """,
+                (new_status, requested_fixer, ticket_id),
+            )
         conn.commit()
         cursor.close()
         conn.close()

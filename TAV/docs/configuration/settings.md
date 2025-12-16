@@ -57,9 +57,9 @@ Core workflow execution behavior.
 #### **Timeouts & Limits**
 | Field | Type | Default | Validation | Description |
 |-------|------|---------|------------|-------------|
-| `default_timeout` | int | 300 | 10-7200 | Default node timeout (seconds) |
+| `default_timeout` | int | 300 | 10-259200 | Default node timeout (seconds) |
 | `http_timeout` | int | 60 | 5-600 | HTTP request timeout (seconds) |
-| `workflow_timeout` | int | 1800 | 60-86400 | Max workflow execution time (seconds) |
+| `workflow_timeout` | int | 1800 | 60-345600 | Max workflow execution time (seconds) |
 
 #### **Retry & Error Handling**
 | Field | Type | Default | Validation | Description |

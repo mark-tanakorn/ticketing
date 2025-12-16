@@ -63,16 +63,19 @@ const renderCustomLabel = ({ cx, cy, midAngle = 0, innerRadius, outerRadius, val
 };
 
 // SLA calculation function
-const getSLATimeLeft = (dateCreated: string, severity: string) => {
-  const slaHours = {
-    'low': 72,
-    'medium': 48,
-    'high': 24,
-    'critical': 4
-  };
+// NOTE: SLA starts when ticket enters in_progress (sla_started_at). Fallback to date_created.
+const getSLATimeLeft = (slaStartedAtOrCreated: string, severity: string) => {
+  const sev = severity.toLowerCase();
 
-  const createdDate = new Date(dateCreated);
-  const slaMs = slaHours[severity.toLowerCase() as keyof typeof slaHours] * 60 * 60 * 1000;
+  const slaMs =
+    ({
+      low: 72,
+      medium: 48,
+      high: 24,
+      critical: 4,
+    }[sev as 'low' | 'medium' | 'high' | 'critical'] ?? 72) * 60 * 60 * 1000;
+
+  const createdDate = new Date(slaStartedAtOrCreated);
   const breachDate = new Date(createdDate.getTime() + slaMs);
   const now = new Date();
 
@@ -112,6 +115,7 @@ interface Ticket {
   category: string;
   severity: string;
   date_created: string;
+  sla_started_at?: string;
   status: string;
   attachment_upload: string;
   approver: string;
@@ -231,6 +235,14 @@ export default function Home() {
         console.error('Error fetching fixers:', err);
         setFixers([]);
       });
+  }, []);
+
+  // Poll tickets so status changes (e.g., SLA breach) show up without manual refresh.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshTickets();
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const updateTicketStatus = async (status: 'in_progress' | 'closed') => {
@@ -1269,13 +1281,13 @@ export default function Home() {
                         <div className={`w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-bold ${
                           selectedTicket.status === 'closed' 
                             ? 'bg-green-100 text-green-800 border-green-300'
-                            : getSLATimeLeft(selectedTicket.date_created, selectedTicket.severity).breached
+                            : getSLATimeLeft((selectedTicket.sla_started_at || selectedTicket.date_created), selectedTicket.severity).breached
                             ? 'bg-red-100 text-red-800 border-red-300'
                             : 'bg-gray-50 text-gray-700'
                         }`}>
                           {selectedTicket.status === 'closed' 
                             ? 'Closed' 
-                            : getSLATimeLeft(selectedTicket.date_created, selectedTicket.severity).timeLeft}
+                            : getSLATimeLeft((selectedTicket.sla_started_at || selectedTicket.date_created), selectedTicket.severity).timeLeft}
                         </div>
                       </div>
                     </div>
