@@ -259,8 +259,8 @@ async def get_tickets():
 # Add TAV constants and helper function
 # For local dev, TAV typically runs at http://localhost:5000
 # Override via env vars if you're targeting a remote TAV instance.
-TAV_BASE_URL = os.getenv("TAV_BASE_URL", "http://localhost:5000")
-TAV_WORKFLOW_ID = os.getenv("TAV_WORKFLOW_ID", "de51f0d2-31fb-448a-acfd-409586920ad8")
+TAV_BASE_URL = os.getenv("TAV_BASE_URL", "http://localhost:5001")
+TAV_WORKFLOW_ID = os.getenv("TAV_WORKFLOW_ID", "31220e0d-1a92-40ae-8cbc-400f3ec1b469")
 
 async def trigger_tav_workflow(ticket_payload: dict) -> None:
     url = f"{TAV_BASE_URL}/api/v1/workflows/{TAV_WORKFLOW_ID}/execute"

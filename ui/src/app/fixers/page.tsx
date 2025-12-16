@@ -254,7 +254,6 @@ export default function Fixers() {
           <li className="mb-2"><a href="/" className="hover:text-gray-300">Dashboard</a></li>
           <li className="mb-2"><a href="/users" className="hover:text-gray-300">Approvers</a></li>
           <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Engineers</a></li>
-          <li className="mb-2"><a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300">TAV</a></li>
         </ul>
       </div>
 
