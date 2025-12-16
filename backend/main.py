@@ -326,6 +326,8 @@ async def _handle_sla_reminder_for_ticket_if_needed(ticket: dict) -> bool:
     If ticket is within 1 hour of SLA breach (but not yet breached), trigger TAV reminder once.
     Returns True if it triggered during this call.
     """
+    conn = None
+    cursor = None
     try:
         if ticket.get("status") == "sla_breached":
             return False
@@ -372,8 +374,6 @@ async def _handle_sla_reminder_for_ticket_if_needed(ticket: dict) -> bool:
         conn.commit()
 
         if updated == 0:
-            cursor.close()
-            conn.close()
             return False
 
         # Enrich payload similarly to create_ticket
@@ -393,9 +393,6 @@ async def _handle_sla_reminder_for_ticket_if_needed(ticket: dict) -> bool:
             r = cursor.fetchone()
             if r:
                 fixer_phone = r[0]
-
-        cursor.close()
-        conn.close()
 
         dc = ticket.get("date_created")
         date_created_iso = dc.isoformat() if hasattr(dc, "isoformat") else str(dc)
@@ -425,6 +422,13 @@ async def _handle_sla_reminder_for_ticket_if_needed(ticket: dict) -> bool:
     except Exception:
         # Don't block /tickets if the workflow call fails; marking reminder sent prevents spam.
         return True
+    finally:
+        try:
+            if cursor is not None:
+                cursor.close()
+        finally:
+            if conn is not None:
+                conn.close()
 
 
 async def _handle_sla_breach_for_ticket_if_needed(ticket: dict) -> bool:
@@ -432,6 +436,8 @@ async def _handle_sla_breach_for_ticket_if_needed(ticket: dict) -> bool:
     If ticket just breached SLA, atomically flip status to 'sla_breached' and trigger TAV workflow.
     Returns True if it transitioned to 'sla_breached' during this call.
     """
+    conn = None
+    cursor = None
     try:
         if ticket.get("status") == "sla_breached":
             return False
@@ -461,8 +467,6 @@ async def _handle_sla_breach_for_ticket_if_needed(ticket: dict) -> bool:
         conn.commit()
 
         if updated == 0:
-            cursor.close()
-            conn.close()
             return False
 
         # Enrich payload similarly to create_ticket
@@ -482,9 +486,6 @@ async def _handle_sla_breach_for_ticket_if_needed(ticket: dict) -> bool:
             r = cursor.fetchone()
             if r:
                 fixer_phone = r[0]
-
-        cursor.close()
-        conn.close()
 
         dc = ticket.get("date_created")
         date_created_iso = dc.isoformat() if hasattr(dc, "isoformat") else str(dc)
@@ -514,6 +515,13 @@ async def _handle_sla_breach_for_ticket_if_needed(ticket: dict) -> bool:
     except Exception:
         # Don't block /tickets if the workflow call fails; status flip is already persisted.
         return True
+    finally:
+        try:
+            if cursor is not None:
+                cursor.close()
+        finally:
+            if conn is not None:
+                conn.close()
 
 
 class TicketApprovalPayload(BaseModel):
@@ -596,6 +604,8 @@ async def update_ticket_status(ticket_id: int, payload: TicketStatusPayload | No
     Expected body:
       { "status": "in_progress", "fixer": "Nick" }
     """
+    conn = None
+    cursor = None
     try:
         allowed_statuses = {
             "open",
@@ -621,14 +631,10 @@ async def update_ticket_status(ticket_id: int, payload: TicketStatusPayload | No
         cursor.execute("SELECT id, status, fixer FROM tickets WHERE id = %s", (ticket_id,))
         existing = cursor.fetchone()
         if not existing:
-            cursor.close()
-            conn.close()
             return {"error": f"Ticket {ticket_id} not found"}
 
         # Do not allow moving a denied ticket into progress without re-opening
         if existing.get("status") == "approval_denied" and new_status == "in_progress":
-            cursor.close()
-            conn.close()
             raise HTTPException(
                 status_code=400,
                 detail="Cannot move a denied ticket to in_progress. Re-open it first.",
@@ -638,8 +644,6 @@ async def update_ticket_status(ticket_id: int, payload: TicketStatusPayload | No
         requested_fixer = payload.fixer if payload else None
         fixer_to_set = requested_fixer if requested_fixer is not None else existing.get("fixer")
         if new_status == "in_progress" and (fixer_to_set is None or str(fixer_to_set).strip() == ""):
-            cursor.close()
-            conn.close()
             raise HTTPException(
                 status_code=400,
                 detail="fixer is required to set status=in_progress",
@@ -649,7 +653,6 @@ async def update_ticket_status(ticket_id: int, payload: TicketStatusPayload | No
         now = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
         should_start_sla = existing.get("status") != "in_progress" and new_status == "in_progress"
 
-        cursor = conn.cursor()
         if should_start_sla:
             cursor.execute(
                 """
@@ -674,14 +677,19 @@ async def update_ticket_status(ticket_id: int, payload: TicketStatusPayload | No
                 (new_status, requested_fixer, ticket_id),
             )
         conn.commit()
-        cursor.close()
-        conn.close()
 
         return {"message": "Ticket status updated", "ticket_id": ticket_id, "status": new_status, "fixer": requested_fixer}
     except HTTPException:
         raise
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        try:
+            if cursor is not None:
+                cursor.close()
+        finally:
+            if conn is not None:
+                conn.close()
 
 @app.post("/tickets")
 async def create_ticket(ticket: dict):
