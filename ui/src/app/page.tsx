@@ -233,14 +233,14 @@ export default function Home() {
       });
   }, []);
 
-  const markInProgress = async () => {
+  const updateTicketStatus = async (status: 'in_progress' | 'closed') => {
     if (!selectedTicket) return;
     setStatusUpdating(true);
     try {
       const response = await fetch(`http://localhost:8000/tickets/${selectedTicket.id}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'in_progress' }),
+        body: JSON.stringify({ status }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -249,13 +249,16 @@ export default function Home() {
       }
 
       refreshTickets();
-      setSelectedTicket({ ...selectedTicket, status: 'in_progress' });
+      setSelectedTicket({ ...selectedTicket, status });
     } catch (e) {
       alert('Failed to update status');
     } finally {
       setStatusUpdating(false);
     }
   };
+
+  const markInProgress = async () => updateTicketStatus('in_progress');
+  const markClosed = async () => updateTicketStatus('closed');
 
   const filteredAndSortedTickets = useMemo(() => {
     // First filter by search term
@@ -690,6 +693,7 @@ export default function Home() {
           <li className="mb-2"><a href="#" className="hover:text-gray-300">Dashboard</a></li>
           <li className="mb-2"><a href="/users" className="hover:text-gray-300">Approvers</a></li>
           <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Engineers</a></li>
+          <li className="mb-2"><a href="http://localhost:3000" target="_blank" rel="noopener noreferrer" className="hover:text-gray-300">TAV</a></li>
         </ul>
       </div>
 
@@ -1133,6 +1137,18 @@ export default function Home() {
                     title="Mark this ticket as In Progress"
                   >
                     Mark In Progress
+                  </button>
+                )}
+                {modalMode === 'details' && selectedTicket.status === 'in_progress' && (
+                  <button
+                    onClick={markClosed}
+                    disabled={statusUpdating}
+                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                      statusUpdating ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
+                    }`}
+                    title="Mark this ticket as Closed"
+                  >
+                    Mark Closed
                   </button>
                 )}
                 <button
