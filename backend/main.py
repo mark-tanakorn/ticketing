@@ -58,6 +58,7 @@ async def startup_event():
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS approver_decided_at TIMESTAMP;")
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS tav_execution_id TEXT;")
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS sla_start_time TIMESTAMP;")
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS pre_breach_triggered BOOLEAN DEFAULT FALSE;")
         
         conn.commit()
         cursor.close()
@@ -228,66 +229,94 @@ async def get_tickets():
         cursor.close()
         conn.close()
         
-        # Helper function to check SLA breach
-        def is_sla_breached(ticket):
-            sla_hours = {
-                'low': 72,
-                'medium': 48,
-                'high': 24,
-                'critical': 1/60  # 1 minute for testing
-            }
-            hours = sla_hours.get(ticket['severity'].lower(), 72)
-            start_time = ticket.get('sla_start_time') or ticket['date_created']
-            breach_time = start_time + timedelta(hours=hours)
-            current_time = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
-            return current_time > breach_time
-        
-        # Check and update SLA breaches (only status, since sla_breached_at is already set at approval)
+        # Check and update SLA breaches and pre-breaches
+        sla_hours_dict = {
+            'low': 72,
+            'medium': 48,
+            'high': 24,
+            'critical': 1/60  # 1 minute for testing
+        }
         for ticket in tickets:
-            if ticket['status'] not in ['sla_breached', 'closed'] and ticket.get('sla_start_time') and is_sla_breached(ticket):
-                # Update status to sla_breached in database
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("UPDATE tickets SET status = 'sla_breached' WHERE id = %s", (ticket['id'],))
-                conn.commit()
-                cursor.close()
-                conn.close()
-                ticket['status'] = 'sla_breached'  # Update in memory
+            if ticket.get('sla_start_time'):
+                # Fetch phones
+                approver_phone = None
+                if ticket['approver']:
+                    conn_temp = get_db_connection()
+                    cursor_temp = conn_temp.cursor()
+                    cursor_temp.execute("SELECT phone FROM users WHERE name = %s LIMIT 1", (ticket['approver'],))
+                    result = cursor_temp.fetchone()
+                    if result:
+                        approver_phone = result[0]
+                    cursor_temp.close()
+                    conn_temp.close()
                 
-                # Trigger SLA breached workflow
-                # Fetch fixer phone
                 fixer_phone = None
                 if ticket['fixer']:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT phone FROM fixers WHERE name = %s LIMIT 1", (ticket['fixer'],))
-                    result = cursor.fetchone()
+                    conn_temp = get_db_connection()
+                    cursor_temp = conn_temp.cursor()
+                    cursor_temp.execute("SELECT phone FROM fixers WHERE name = %s LIMIT 1", (ticket['fixer'],))
+                    result = cursor_temp.fetchone()
                     if result:
                         fixer_phone = result[0]
+                    cursor_temp.close()
+                    conn_temp.close()
+                
+                sla_hours_value = sla_hours_dict.get(ticket['severity'].lower(), 72)
+                breach_time = ticket['sla_start_time'] + timedelta(hours=sla_hours_value)
+                current_time = datetime.utcnow() + timedelta(hours=8)
+                
+                # Check pre-breach (30 seconds before for testing)
+                if not ticket.get('pre_breach_triggered', False) and ticket['status'] not in ['closed', 'sla_breached'] and current_time >= breach_time - timedelta(seconds=30):
+                    payload = {
+                        "ticket_id": ticket['id'],
+                        "title": ticket['title'],
+                        "description": ticket['description'],
+                        "severity": ticket['severity'].capitalize(),
+                        "breach_time": breach_time.strftime("%d/%m/%y %H:%M"),
+                        "sla_hours": sla_hours_value,
+                        "approver": ticket['approver'],
+                        "approver_phone": approver_phone,
+                        "fixer": ticket['fixer'],
+                        "fixer_phone": fixer_phone,
+                        "attachment_upload": ticket['attachment_upload'],
+                    }
+                    await trigger_tav_workflow_pre_breach(payload)
+                    
+                    # Update flag
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE tickets SET pre_breach_triggered = TRUE WHERE id = %s", (ticket['id'],))
+                    conn.commit()
                     cursor.close()
                     conn.close()
+                    ticket['pre_breach_triggered'] = True
                 
-                sla_hours_dict = {
-                    'low': 72,
-                    'medium': 48,
-                    'high': 24,
-                    'critical': 1/60  # 1 minute for testing
-                }
-                sla_hours_value = sla_hours_dict.get(ticket['severity'].lower(), 72)
-                sla_breached_payload = {
-                    "ticket_id": ticket['id'],
-                    "title": ticket['title'],
-                    "description": ticket['description'],
-                    "severity": ticket['severity'].capitalize(),
-                    "breach_time": ticket['sla_breached_at'].strftime("%d/%m/%y %H:%M") if ticket['sla_breached_at'] else None,
-                    "sla_hours": sla_hours_value,
-                    "approver": ticket['approver'],
-                    "approver_phone": fixer_phone,
-                    "fixer": ticket['fixer'],
-                    "fixer_phone": fixer_phone,
-                    "attachment_upload": ticket['attachment_upload'],
-                }
-                await trigger_tav_workflow_sla_breached(sla_breached_payload)
+                # Check breach
+                if ticket['status'] not in ['sla_breached', 'closed'] and current_time > breach_time:
+                    # Update status
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE tickets SET status = 'sla_breached' WHERE id = %s", (ticket['id'],))
+                    conn.commit()
+                    cursor.close()
+                    conn.close()
+                    ticket['status'] = 'sla_breached'
+                    
+                    # Trigger breach workflow
+                    payload = {
+                        "ticket_id": ticket['id'],
+                        "title": ticket['title'],
+                        "description": ticket['description'],
+                        "severity": ticket['severity'].capitalize(),
+                        "breach_time": breach_time.strftime("%d/%m/%y %H:%M"),
+                        "sla_hours": sla_hours_value,
+                        "approver": ticket['approver'],
+                        "approver_phone": approver_phone,
+                        "fixer": ticket['fixer'],
+                        "fixer_phone": fixer_phone,
+                        "attachment_upload": ticket['attachment_upload'],
+                    }
+                    await trigger_tav_workflow_sla_breached(payload)
         
         return {"tickets": tickets}
     except Exception as e:
@@ -337,6 +366,21 @@ async def trigger_tav_workflow_sla_breached(ticket_payload: dict) -> None:
     except Exception as e:
         print(f"Failed to trigger SLA breached workflow: {e}")
 
+async def trigger_tav_workflow_pre_breach(ticket_payload: dict) -> None:
+    # Use the workflow ID for pre-breach notification (30 seconds before for testing)
+    pre_breach_workflow_id = "1d25d573-3569-496f-91c5-0ad1d756026e"
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{pre_breach_workflow_id}/execute"
+    body = {"trigger_data": ticket_payload}
+
+    print(f"Attempting to trigger pre-breach workflow for ticket {ticket_payload.get('ticket_id')} at {url}")
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            # If TAV dev-mode is enabled, no Authorization header is needed.
+            r = await client.post(url, json=body)
+            r.raise_for_status()
+            print(f"Pre-breach workflow triggered successfully for ticket {ticket_payload.get('ticket_id')}")
+    except Exception as e:
+        print(f"Failed to trigger pre-breach workflow: {e}")
 
 class TicketApprovalPayload(BaseModel):
     approved: bool
