@@ -63,7 +63,7 @@ const renderCustomLabel = ({ cx, cy, midAngle = 0, innerRadius, outerRadius, val
 };
 
 // SLA calculation function
-const getSLATimeLeft = (dateCreated: string, severity: string) => {
+const getSLATimeLeft = (ticket: Ticket) => {
   const slaHours = {
     'low': 72,
     'medium': 48,
@@ -71,8 +71,9 @@ const getSLATimeLeft = (dateCreated: string, severity: string) => {
     'critical': 4
   };
 
-  const createdDate = new Date(dateCreated);
-  const slaMs = slaHours[severity.toLowerCase() as keyof typeof slaHours] * 60 * 60 * 1000;
+  const startTime = ticket.sla_start_time || ticket.date_created;
+  const createdDate = new Date(startTime);
+  const slaMs = slaHours[ticket.severity.toLowerCase() as keyof typeof slaHours] * 60 * 60 * 1000;
   const breachDate = new Date(createdDate.getTime() + slaMs);
   const now = new Date();
 
@@ -117,6 +118,7 @@ interface Ticket {
   approver: string;
   fixer: string;
   approver_reply_text?: string;
+  sla_start_time?: string;
 }
 
 interface User {
@@ -232,30 +234,6 @@ export default function Home() {
         setFixers([]);
       });
   }, []);
-
-  const markInProgress = async () => {
-    if (!selectedTicket) return;
-    setStatusUpdating(true);
-    try {
-      const response = await fetch(`http://localhost:8000/tickets/${selectedTicket.id}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'in_progress' }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        alert(data?.detail || data?.error || 'Failed to update status');
-        return;
-      }
-
-      refreshTickets();
-      setSelectedTicket({ ...selectedTicket, status: 'in_progress' });
-    } catch (e) {
-      alert('Failed to update status');
-    } finally {
-      setStatusUpdating(false);
-    }
-  };
 
   const filteredAndSortedTickets = useMemo(() => {
     // First filter by search term
@@ -1123,18 +1101,6 @@ export default function Home() {
                 {modalMode === 'details' ? 'Ticket Details' : 'Edit Ticket'}
               </h2>
               <div className="flex items-center space-x-2">
-                {modalMode === 'details' && (selectedTicket.fixer || '').trim() !== '' && selectedTicket.status === 'open' && (
-                  <button
-                    onClick={markInProgress}
-                    disabled={statusUpdating}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                      statusUpdating ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600 text-white'
-                    }`}
-                    title="Mark this ticket as In Progress"
-                  >
-                    Mark In Progress
-                  </button>
-                )}
                 <button
                   onClick={() => setModalMode(modalMode === 'details' ? 'edit' : 'details')}
                   className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors"
@@ -1253,13 +1219,17 @@ export default function Home() {
                         <div className={`w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-bold ${
                           selectedTicket.status === 'closed' 
                             ? 'bg-green-100 text-green-800 border-green-300'
-                            : getSLATimeLeft(selectedTicket.date_created, selectedTicket.severity).breached
+                            : selectedTicket.status === 'awaiting_approval'
+                            ? 'bg-orange-100 text-orange-800 border-orange-300'
+                            : getSLATimeLeft(selectedTicket).breached
                             ? 'bg-red-100 text-red-800 border-red-300'
                             : 'bg-gray-50 text-gray-700'
                         }`}>
                           {selectedTicket.status === 'closed' 
                             ? 'Closed' 
-                            : getSLATimeLeft(selectedTicket.date_created, selectedTicket.severity).timeLeft}
+                            : selectedTicket.status === 'awaiting_approval'
+                            ? 'Awaiting Approval'
+                            : getSLATimeLeft(selectedTicket).timeLeft}
                         </div>
                       </div>
                     </div>

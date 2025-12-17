@@ -57,6 +57,7 @@ async def startup_event():
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS approver_reply_text TEXT;")
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS approver_decided_at TIMESTAMP;")
         cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS tav_execution_id TEXT;")
+        cursor.execute("ALTER TABLE tickets ADD COLUMN IF NOT EXISTS sla_start_time TIMESTAMP;")
         
         conn.commit()
         cursor.close()
@@ -228,21 +229,22 @@ async def get_tickets():
         conn.close()
         
         # Helper function to check SLA breach
-        def is_sla_breached(date_created, severity):
+        def is_sla_breached(ticket):
             sla_hours = {
                 'low': 72,
                 'medium': 48,
                 'high': 24,
                 'critical': 4
             }
-            hours = sla_hours.get(severity.lower(), 72)
-            breach_time = date_created + timedelta(hours=hours)
+            hours = sla_hours.get(ticket['severity'].lower(), 72)
+            start_time = ticket.get('sla_start_time') or ticket['date_created']
+            breach_time = start_time + timedelta(hours=hours)
             current_time = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
             return current_time > breach_time
         
         # Check and update SLA breaches
         for ticket in tickets:
-            if ticket['status'] != 'sla_breached' and is_sla_breached(ticket['date_created'], ticket['severity']):
+            if ticket['status'] != 'sla_breached' and is_sla_breached(ticket):
                 # Update status in database
                 conn = get_db_connection()
                 cursor = conn.cursor()
@@ -264,6 +266,18 @@ TAV_WORKFLOW_ID = os.getenv("TAV_WORKFLOW_ID", "31220e0d-1a92-40ae-8cbc-400f3ec1
 
 async def trigger_tav_workflow(ticket_payload: dict) -> None:
     url = f"{TAV_BASE_URL}/api/v1/workflows/{TAV_WORKFLOW_ID}/execute"
+    body = {"trigger_data": ticket_payload}
+
+    async with httpx.AsyncClient(timeout=10) as client:
+        # If TAV dev-mode is enabled, no Authorization header is needed.
+        r = await client.post(url, json=body)
+        r.raise_for_status()
+
+
+async def trigger_tav_workflow_updated(ticket_payload: dict) -> None:
+    # Use the new workflow ID for approved tickets
+    updated_workflow_id = "69e99f3d-d527-49ff-9210-e1759696cda2"
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{updated_workflow_id}/execute"
     body = {"trigger_data": ticket_payload}
 
     async with httpx.AsyncClient(timeout=10) as client:
@@ -307,7 +321,8 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 approver_decision = %s,
                 approver_reply_text = %s,
                 approver_decided_at = %s,
-                tav_execution_id = %s
+                tav_execution_id = %s,
+                sla_start_time = CASE WHEN %s THEN %s ELSE sla_start_time END
             WHERE id = %s
             """,
             (
@@ -316,6 +331,8 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 payload.reply_text,
                 decided_at,
                 payload.execution_id,
+                payload.approved,  # Only set sla_start_time if approved
+                decided_at if payload.approved else None,
                 ticket_id,
             ),
         )
@@ -326,6 +343,77 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
 
         if updated == 0:
             return {"error": f"Ticket {ticket_id} not found"}
+
+        # If approved, trigger the updated workflow with correct SLA timing
+        if payload.approved:
+            # Fetch the complete ticket details
+            conn = get_db_connection()
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            cursor.execute("SELECT * FROM tickets WHERE id = %s", (ticket_id,))
+            ticket_data = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            
+            if ticket_data:
+                # Calculate the correct breach_time based on sla_start_time
+                sla_hours = {
+                    'low': 72,
+                    'medium': 48,
+                    'high': 24,
+                    'critical': 4
+                }
+                hours = sla_hours.get(ticket_data['severity'].lower(), 72)
+                actual_breach_time = ticket_data['sla_start_time'] + timedelta(hours=hours)
+                
+                # Fetch approver phone
+                approver_phone = None
+                if ticket_data['approver']:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT phone FROM users WHERE name = %s LIMIT 1", (ticket_data['approver'],))
+                    result = cursor.fetchone()
+                    if result:
+                        approver_phone = result[0]
+                    cursor.close()
+                    conn.close()
+                
+                # Fetch fixer phone
+                fixer_phone = None
+                if ticket_data['fixer']:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT phone FROM fixers WHERE name = %s LIMIT 1", (ticket_data['fixer'],))
+                    result = cursor.fetchone()
+                    if result:
+                        fixer_phone = result[0]
+                    cursor.close()
+                    conn.close()
+                
+                # Create payload for the updated workflow
+                updated_payload = {
+                    "ticket_id": ticket_id,
+                    "title": ticket_data["title"],
+                    "description": ticket_data["description"],
+                    "category": ticket_data["category"],
+                    "severity": ticket_data["severity"].capitalize(),
+                    "date_created": ticket_data["date_created"].strftime("%d/%m/%y %H:%M"),
+                    "sla_start_time": ticket_data["sla_start_time"].strftime("%d/%m/%y %H:%M"),
+                    "breach_time": actual_breach_time.strftime("%d/%m/%y %H:%M"),
+                    "sla_hours": hours,
+                    "status": ticket_data["status"],
+                    "approver": ticket_data["approver"],
+                    "approver_phone": approver_phone,
+                    "fixer": ticket_data["fixer"],
+                    "fixer_phone": fixer_phone,
+                    "attachment_upload": ticket_data["attachment_upload"],
+                    "approver_decision": ticket_data["approver_decision"],
+                    "approver_reply_text": ticket_data["approver_reply_text"],
+                    "approver_decided_at": ticket_data["approver_decided_at"].strftime("%d/%m/%y %H:%M") if ticket_data["approver_decided_at"] else None,
+                    "tav_execution_id": ticket_data["tav_execution_id"]
+                }
+                
+                # Trigger the updated workflow
+                await trigger_tav_workflow_updated(updated_payload)
 
         return {
             "message": "Approval decision recorded",
@@ -493,8 +581,8 @@ async def create_ticket(ticket: dict):
             "ticket_id": ticket_id,
             "title": ticket.get("title"),
             "description": ticket.get("description"),
-            "severity": ticket.get("severity"),
-            "date_created": current_time.isoformat(),
+            "severity": ticket.get("severity").capitalize() if ticket.get("severity") else ticket.get("severity"),
+            "date_created": current_time.strftime("%d/%m/%y %H:%M"),
             "approver": approver_name,
             "approver_phone": approver_phone,
             'fixer': ticket.get('assigned_to'),
