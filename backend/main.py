@@ -394,22 +394,13 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                     "ticket_id": ticket_id,
                     "title": ticket_data["title"],
                     "description": ticket_data["description"],
-                    "category": ticket_data["category"],
                     "severity": ticket_data["severity"].capitalize(),
-                    "date_created": ticket_data["date_created"].strftime("%d/%m/%y %H:%M"),
-                    "sla_start_time": ticket_data["sla_start_time"].strftime("%d/%m/%y %H:%M"),
                     "breach_time": actual_breach_time.strftime("%d/%m/%y %H:%M"),
                     "sla_hours": hours,
-                    "status": ticket_data["status"],
                     "approver": ticket_data["approver"],
-                    "approver_phone": approver_phone,
                     "fixer": ticket_data["fixer"],
                     "fixer_phone": fixer_phone,
                     "attachment_upload": ticket_data["attachment_upload"],
-                    "approver_decision": ticket_data["approver_decision"],
-                    "approver_reply_text": ticket_data["approver_reply_text"],
-                    "approver_decided_at": ticket_data["approver_decided_at"].strftime("%d/%m/%y %H:%M") if ticket_data["approver_decided_at"] else None,
-                    "tav_execution_id": ticket_data["tav_execution_id"]
                 }
                 
                 # Trigger the updated workflow
