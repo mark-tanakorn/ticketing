@@ -234,7 +234,7 @@ async def get_tickets():
                 'low': 72,
                 'medium': 48,
                 'high': 24,
-                'critical': 4
+                'critical': 1/60  # 1 minute for testing
             }
             hours = sla_hours.get(ticket['severity'].lower(), 72)
             start_time = ticket.get('sla_start_time') or ticket['date_created']
@@ -253,6 +253,41 @@ async def get_tickets():
                 cursor.close()
                 conn.close()
                 ticket['status'] = 'sla_breached'  # Update in memory
+                
+                # Trigger SLA breached workflow
+                # Fetch fixer phone
+                fixer_phone = None
+                if ticket['fixer']:
+                    conn = get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT phone FROM fixers WHERE name = %s LIMIT 1", (ticket['fixer'],))
+                    result = cursor.fetchone()
+                    if result:
+                        fixer_phone = result[0]
+                    cursor.close()
+                    conn.close()
+                
+                sla_hours_dict = {
+                    'low': 72,
+                    'medium': 48,
+                    'high': 24,
+                    'critical': 1/60  # 1 minute for testing
+                }
+                sla_hours_value = sla_hours_dict.get(ticket['severity'].lower(), 72)
+                sla_breached_payload = {
+                    "ticket_id": ticket['id'],
+                    "title": ticket['title'],
+                    "description": ticket['description'],
+                    "severity": ticket['severity'].capitalize(),
+                    "breach_time": ticket['sla_breached_at'].strftime("%d/%m/%y %H:%M") if ticket['sla_breached_at'] else None,
+                    "sla_hours": sla_hours_value,
+                    "approver": ticket['approver'],
+                    "approver_phone": fixer_phone,
+                    "fixer": ticket['fixer'],
+                    "fixer_phone": fixer_phone,
+                    "attachment_upload": ticket['attachment_upload'],
+                }
+                await trigger_tav_workflow_sla_breached(sla_breached_payload)
         
         return {"tickets": tickets}
     except Exception as e:
@@ -284,6 +319,23 @@ async def trigger_tav_workflow_updated(ticket_payload: dict) -> None:
         # If TAV dev-mode is enabled, no Authorization header is needed.
         r = await client.post(url, json=body)
         r.raise_for_status()
+
+
+async def trigger_tav_workflow_sla_breached(ticket_payload: dict) -> None:
+    # Use the workflow ID for SLA breached tickets
+    sla_breached_workflow_id = "004d3aaf-0914-4535-bc56-bd5fabc31dd5"
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{sla_breached_workflow_id}/execute"
+    body = {"trigger_data": ticket_payload}
+
+    print(f"Attempting to trigger SLA breached workflow for ticket {ticket_payload.get('Ticket ID')} at {url}")
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            # If TAV dev-mode is enabled, no Authorization header is needed.
+            r = await client.post(url, json=body)
+            r.raise_for_status()
+            print(f"SLA breached workflow triggered successfully for ticket {ticket_payload.get('Ticket ID')}")
+    except Exception as e:
+        print(f"Failed to trigger SLA breached workflow: {e}")
 
 
 class TicketApprovalPayload(BaseModel):
@@ -323,7 +375,7 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 approver_decided_at = %s,
                 tav_execution_id = %s,
                 sla_start_time = CASE WHEN %s THEN %s ELSE sla_start_time END,
-                sla_breached_at = CASE WHEN %s THEN %s + INTERVAL '1 hour' * (CASE WHEN severity = 'critical' THEN 4 WHEN severity = 'high' THEN 24 WHEN severity = 'medium' THEN 48 ELSE 72 END) ELSE sla_breached_at END
+                sla_breached_at = CASE WHEN %s THEN %s + INTERVAL '1 hour' * (CASE WHEN severity = 'critical' THEN 1.0/60 WHEN severity = 'high' THEN 24 WHEN severity = 'medium' THEN 48 ELSE 72 END) ELSE sla_breached_at END
             WHERE id = %s
             """,
             (
@@ -363,7 +415,7 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                     'low': 72,
                     'medium': 48,
                     'high': 24,
-                    'critical': 4
+                    'critical': 1/60  # 1 minute for testing
                 }
                 hours = sla_hours.get(ticket_data['severity'].lower(), 72)
                 actual_breach_time = ticket_data['sla_start_time'] + timedelta(hours=hours)
