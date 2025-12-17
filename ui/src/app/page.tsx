@@ -117,7 +117,13 @@ interface Ticket {
   attachment_upload: string;
   approver: string;
   fixer: string;
+  approver_decision?: boolean;
   approver_reply_text?: string;
+  approver_decided_at?: string;
+  tav_execution_id?: string;
+  sla_reminder_sent_at?: string;
+  sla_breached_at?: string;
+  sla_started_at?: string;
   sla_start_time?: string;
 }
 
@@ -1193,42 +1199,63 @@ export default function Home() {
                           : 'No remarks provided'}
                       </div>
                     </div>
+                  ) : selectedTicket.status === 'awaiting_approval' ? (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-orange-100 text-orange-800 border-orange-300 text-center text-lg font-bold">
+                        Awaiting Approval
+                      </div>
+                    </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Created</label>
-                        <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                          {(() => {
-                            const date = new Date(selectedTicket.date_created);
-                            return `${date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })} ${date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
-                          })()}
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {(selectedTicket.status === 'open' || selectedTicket.status === 'in_progress' || selectedTicket.status === 'sla_breached' || selectedTicket.status === 'closed') && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Approved At</label>
+                            <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                              {selectedTicket.approver_decided_at ? (() => {
+                                const date = new Date(selectedTicket.approver_decided_at);
+                                return `${date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })} ${date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+                              })() : 'N/A'}
+                            </div>
+                          </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">SLA Timeframe</label>
-                        <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                          {selectedTicket.severity === 'critical' ? '4 hours' :
-                           selectedTicket.severity === 'high' ? '24 hours' :
-                           selectedTicket.severity === 'medium' ? '48 hours' : '72 hours'}
-                        </div>
-                      </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">SLA Target</label>
+                            <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                              {selectedTicket.severity === 'critical' ? '4' :
+                               selectedTicket.severity === 'high' ? '24' :
+                               selectedTicket.severity === 'medium' ? '48' : '72'}
+                            </div>
+                          </div>
 
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Time Left Until SLA Breach</label>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">SLA Deadline</label>
+                            <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                              {selectedTicket.sla_breached_at ? (() => {
+                                const date = new Date(selectedTicket.sla_breached_at);
+                                return `${date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' })} ${date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+                              })() : 'N/A'}
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      <div className="md:col-span-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {selectedTicket.status === 'closed' ? 'Status' : 'Time Left Until SLA Breach'}
+                        </label>
                         <div className={`w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-bold ${
                           selectedTicket.status === 'closed' 
                             ? 'bg-green-100 text-green-800 border-green-300'
-                            : selectedTicket.status === 'awaiting_approval'
-                            ? 'bg-orange-100 text-orange-800 border-orange-300'
-                            : getSLATimeLeft(selectedTicket).breached
+                            : selectedTicket.status === 'sla_breached'
                             ? 'bg-red-100 text-red-800 border-red-300'
                             : 'bg-gray-50 text-gray-700'
                         }`}>
                           {selectedTicket.status === 'closed' 
                             ? 'Closed' 
-                            : selectedTicket.status === 'awaiting_approval'
-                            ? 'Awaiting Approval'
+                            : selectedTicket.status === 'sla_breached'
+                            ? 'SLA Breached'
                             : getSLATimeLeft(selectedTicket).timeLeft}
                         </div>
                       </div>

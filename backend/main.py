@@ -242,10 +242,10 @@ async def get_tickets():
             current_time = datetime.utcnow() + timedelta(hours=8)  # Singapore timezone
             return current_time > breach_time
         
-        # Check and update SLA breaches
+        # Check and update SLA breaches (only status, since sla_breached_at is already set at approval)
         for ticket in tickets:
-            if ticket['status'] != 'sla_breached' and is_sla_breached(ticket):
-                # Update status in database
+            if ticket['status'] not in ['sla_breached', 'closed'] and ticket.get('sla_start_time') and is_sla_breached(ticket):
+                # Update status to sla_breached in database
                 conn = get_db_connection()
                 cursor = conn.cursor()
                 cursor.execute("UPDATE tickets SET status = 'sla_breached' WHERE id = %s", (ticket['id'],))
@@ -322,7 +322,8 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 approver_reply_text = %s,
                 approver_decided_at = %s,
                 tav_execution_id = %s,
-                sla_start_time = CASE WHEN %s THEN %s ELSE sla_start_time END
+                sla_start_time = CASE WHEN %s THEN %s ELSE sla_start_time END,
+                sla_breached_at = CASE WHEN %s THEN %s + INTERVAL '1 hour' * (CASE WHEN severity = 'critical' THEN 4 WHEN severity = 'high' THEN 24 WHEN severity = 'medium' THEN 48 ELSE 72 END) ELSE sla_breached_at END
             WHERE id = %s
             """,
             (
@@ -332,6 +333,8 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 decided_at,
                 payload.execution_id,
                 payload.approved,  # Only set sla_start_time if approved
+                decided_at if payload.approved else None,
+                payload.approved,  # Only set sla_breached_at if approved
                 decided_at if payload.approved else None,
                 ticket_id,
             ),
