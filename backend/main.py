@@ -435,9 +435,9 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 decided_at,
                 payload.execution_id,
                 payload.approved,  # Only set sla_start_time if approved
-                decided_at if payload.approved else None,
+                decided_at,
                 payload.approved,  # Only set sla_breached_at if approved
-                decided_at if payload.approved else None,
+                decided_at,
                 ticket_id,
             ),
         )
