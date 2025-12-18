@@ -1,20 +1,18 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import psycopg2
 from psycopg2.extras import RealDictCursor
 import random
 from datetime import datetime, timedelta
-import httpx
-import os
 from utils import (
     get_db_connection,
     SLA_HOURS_DICT,
     trigger_tav_workflow,
-    trigger_tav_workflow_updated,
-    trigger_tav_workflow_sla_breached,
-    trigger_tav_workflow_pre_breach,
+    trigger_tav_workflow_updated
 )
+from routes.delete import router as delete_router
+from routes.get import router as get_router
+
 
 app = FastAPI()
 
@@ -26,6 +24,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(delete_router)
+app.include_router(get_router)
 
 # Create tables if they don't exist (don't drop existing data)
 @app.on_event("startup")
@@ -87,83 +88,8 @@ async def create_fixers_table():
     except Exception as e:
         print(f"DB setup error for fixers table: {e}")
 
-# Basic route
-@app.get("/")
-async def root():
-    return {"message": "Backend is running!"}
 
-@app.get("/users/{department}")
-async def get_users_by_department(department: str):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("""
-            SELECT id, name, department, approval_tier 
-            FROM users 
-            WHERE department = %s 
-            ORDER BY approval_tier
-        """, (department,))
-        users = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return {"users": users}
-    except Exception as e:
-        return {"error": str(e)}
 
-@app.get("/users")
-async def get_all_users():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT id, name, phone, email, department, approval_tier FROM users ORDER BY id")
-        users = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return {"users": users}
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.post("/users")
-async def create_user(user: dict):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Check if name already exists
-        cursor.execute("SELECT id FROM users WHERE LOWER(name) = LOWER(%s)", (user.get('name'),))
-        if cursor.fetchone():
-            cursor.close()
-            conn.close()
-            return {"error": "User name already exists"}
-
-        # Check if email already exists
-        cursor.execute("SELECT id FROM users WHERE LOWER(email) = LOWER(%s)", (user.get('email'),))
-        if cursor.fetchone():
-            cursor.close()
-            conn.close()
-            return {"error": "User email already exists"}
-
-        # Check if phone already exists
-        cursor.execute("SELECT id FROM users WHERE phone = %s", (user.get('phone'),))
-        if cursor.fetchone():
-            cursor.close()
-            conn.close()
-            return {"error": "User phone already exists"}
-
-        # Get the next sequential ID (not auto-increment)
-        cursor.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM users")
-        next_id = cursor.fetchone()[0]
-
-        cursor.execute("""
-            INSERT INTO users (id, name, phone, email, department, approval_tier)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (next_id, user.get('name'), user.get('phone'), user.get('email'), user.get('department'), user.get('approval_tier')))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return {"message": "User created successfully"}
-    except Exception as e:
-        return {"error": str(e)}
 
 @app.put("/users/{user_id}")
 async def update_user(user_id: int, user: dict):
@@ -204,121 +130,8 @@ async def update_user(user_id: int, user: dict):
     except Exception as e:
         return {"error": str(e)}
 
-@app.delete("/users/{user_id}")
-async def delete_user(user_id: int):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return {"message": "User deleted successfully"}
-    except Exception as e:
-        return {"error": str(e)}
 
-@app.get("/tickets")
-async def get_tickets():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT * FROM tickets ORDER BY date_created DESC")
-        tickets = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        
-        # Check and update SLA breaches and pre-breaches
-        for ticket in tickets:
-            if ticket.get('sla_start_time'):
-                # Fetch phones
-                approver_phone = None
-                approver_email = None
-                if ticket['approver']:
-                    conn_temp = get_db_connection()
-                    cursor_temp = conn_temp.cursor()
-                    cursor_temp.execute("SELECT phone, email FROM users WHERE name = %s LIMIT 1", (ticket['approver'],))
-                    result = cursor_temp.fetchone()
-                    if result:
-                        approver_phone = result[0]
-                        approver_email = result[1]
-                    cursor_temp.close()
-                    conn_temp.close()
-                
-                fixer_phone = None
-                fixer_email = None
-                if ticket['fixer']:
-                    conn_temp = get_db_connection()
-                    cursor_temp = conn_temp.cursor()
-                    cursor_temp.execute("SELECT phone, email FROM fixers WHERE name = %s LIMIT 1", (ticket['fixer'],))
-                    result = cursor_temp.fetchone()
-                    if result:
-                        fixer_phone = result[0]
-                        fixer_email = result[1]
-                    cursor_temp.close()
-                    conn_temp.close()
-                
-                sla_hours_value = SLA_HOURS_DICT.get(ticket['severity'].lower(), 72)
-                breach_time = ticket['sla_start_time'] + timedelta(hours=sla_hours_value)
-                current_time = datetime.utcnow() + timedelta(hours=8)
-                
-                # Check pre-breach (30 seconds before for testing)
-                if not ticket.get('pre_breach_triggered', False) and ticket['status'] not in ['closed', 'sla_breached'] and current_time >= breach_time - timedelta(seconds=30):
-                    payload = {
-                        "ticket_id": ticket['id'],
-                        "title": ticket['title'],
-                        "description": ticket['description'],
-                        "severity": ticket['severity'].capitalize(),
-                        "breach_time": breach_time.strftime("%d/%m/%y %H:%M"),
-                        "sla_hours": sla_hours_value,
-                        "approver": ticket['approver'],
-                        "approver_phone": approver_phone,
-                        "fixer": ticket['fixer'],
-                        "fixer_phone": fixer_phone,
-                        "attachment_upload": ticket['attachment_upload'],
-                    }
-                    await trigger_tav_workflow_pre_breach(payload)
-                    
-                    # Update flag
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE tickets SET pre_breach_triggered = TRUE WHERE id = %s", (ticket['id'],))
-                    conn.commit()
-                    cursor.close()
-                    conn.close()
-                    ticket['pre_breach_triggered'] = True
-                
-                # Check breach
-                if ticket['status'] not in ['sla_breached', 'closed'] and current_time > breach_time:
-                    # Update status
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("UPDATE tickets SET status = 'sla_breached' WHERE id = %s", (ticket['id'],))
-                    conn.commit()
-                    cursor.close()
-                    conn.close()
-                    ticket['status'] = 'sla_breached'
-                    
-                    # Trigger breach workflow
-                    payload = {
-                        "ticket_id": ticket['id'],
-                        "title": ticket['title'],
-                        "description": ticket['description'],
-                        "severity": ticket['severity'].capitalize(),
-                        "breach_time": breach_time.strftime("%d/%m/%y %H:%M"),
-                        "sla_hours": sla_hours_value,
-                        "approver": ticket['approver'],
-                        "approver_phone": approver_phone,
-                        'approver_email': approver_email,
-                        "fixer": ticket['fixer'],
-                        "fixer_phone": fixer_phone,
-                        'fixer_email': fixer_email,
-                        "attachment_upload": ticket['attachment_upload'],
-                    }
-                    await trigger_tav_workflow_sla_breached(payload)
-        
-        return {"tickets": tickets}
-    except Exception as e:
-        return {"error": str(e)}
+
 
 class TicketApprovalPayload(BaseModel):
     approved: bool
@@ -640,32 +453,9 @@ async def update_ticket(ticket_id: int, ticket: dict):
     except Exception as e:
         return {"error": str(e)}
 
-@app.delete("/tickets/{ticket_id}")
-async def delete_ticket(ticket_id: int):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM tickets WHERE id = %s", (ticket_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return {"message": "Ticket deleted successfully"}
-    except Exception as e:
-        return {"error": str(e)}
 
-# Get all fixers
-@app.get("/fixers")
-async def get_all_fixers():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT id, name, email, phone, department FROM fixers ORDER BY id")
-        fixers = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return {"fixers": fixers}
-    except Exception as e:
-        return {"error": str(e)}
+
+
 
 # Create a new fixer
 @app.post("/fixers")
@@ -750,16 +540,4 @@ async def update_fixer(fixer_id: int, fixer: dict):
     except Exception as e:
         return {"error": str(e)}
 
-# Delete a fixer
-@app.delete("/fixers/{fixer_id}")
-async def delete_fixer(fixer_id: int):
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM fixers WHERE id = %s", (fixer_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return {"message": "Fixer deleted successfully"}
-    except Exception as e:
-        return {"error": str(e)}
+
