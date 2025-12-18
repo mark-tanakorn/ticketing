@@ -1,15 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useMemo } from 'react';
-
-interface User {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  department: string;
-  approval_tier: number;
-}
+import { useEffect, useState, useMemo } from "react";
+import { User } from "../types";
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([]);
@@ -19,112 +11,126 @@ export default function Users() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    department: '',
-    approval_tier: '1'
+    name: "",
+    phone: "",
+    email: "",
+    department: "",
+    approval_tier: "1",
   });
   const [editFormData, setEditFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    department: '',
-    approval_tier: '1'
+    name: "",
+    phone: "",
+    email: "",
+    department: "",
+    approval_tier: "1",
   });
 
   // Check if create form is valid (all fields must be filled)
   const isCreateFormValid = useMemo(() => {
-    return formData.name.trim() !== '' &&
-           formData.phone.trim() !== '' &&
-           formData.email.trim() !== '' &&
-           formData.department !== '' &&
-           formData.approval_tier !== '';
+    return (
+      formData.name.trim() !== "" &&
+      formData.phone.trim() !== "" &&
+      formData.email.trim() !== "" &&
+      formData.department !== "" &&
+      formData.approval_tier !== ""
+    );
   }, [formData]);
 
   // Check if edit form is valid (all fields must be filled)
   const isEditFormValid = useMemo(() => {
-    return editFormData.name.trim() !== '' &&
-           editFormData.phone.trim() !== '' &&
-           editFormData.email.trim() !== '' &&
-           editFormData.department !== '' &&
-           editFormData.approval_tier !== '';
+    return (
+      editFormData.name.trim() !== "" &&
+      editFormData.phone.trim() !== "" &&
+      editFormData.email.trim() !== "" &&
+      editFormData.department !== "" &&
+      editFormData.approval_tier !== ""
+    );
   }, [editFormData]);
 
+  // Fetch fixers on component mount
   useEffect(() => {
     fetchUsers();
   }, []);
 
+  // Function to fetch fixers from backend
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/users');
+      const response = await fetch("http://localhost:8000/users");
       const data = await response.json();
       if (response.ok) {
         setUsers(data.users || []);
       } else {
-        setError(data.error || 'Failed to fetch users');
+        setError(data.error || "Failed to fetch users");
       }
     } catch (err) {
-      setError('Failed to fetch users');
+      setError("Failed to fetch users");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Handle form input changes
+  const handleFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
+  // Handle form submission to create a new user
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Check for duplicate name
-    const existingUserByName = users.find(u => u.name.toLowerCase() === formData.name.toLowerCase());
+    const existingUserByName = users.find(
+      (u) => u.name.toLowerCase() === formData.name.toLowerCase()
+    );
     if (existingUserByName) {
-      alert('A user with this name already exists.');
+      alert("A user with this name already exists.");
       return;
     }
-    
+
     // Check for duplicate email
-    const existingUser = users.find(u => u.email.toLowerCase() === formData.email.toLowerCase());
+    const existingUser = users.find(
+      (u) => u.email.toLowerCase() === formData.email.toLowerCase()
+    );
     if (existingUser) {
-      alert('A user with this email already exists.');
+      alert("A user with this email already exists.");
       return;
     }
 
     // Check for duplicate phone
-    const existingUserByPhone = users.find(u => u.phone === formData.phone);
+    const existingUserByPhone = users.find((u) => u.phone === formData.phone);
     if (existingUserByPhone) {
-      alert('A user with this phone number already exists.');
+      alert("A user with this phone number already exists.");
       return;
     }
-    
+
     try {
-      const response = await fetch('http://localhost:8000/users', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8000/users", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           name: formData.name,
           phone: formData.phone,
           email: formData.email,
           department: formData.department,
-          approval_tier: parseInt(formData.approval_tier)
-        })
+          approval_tier: parseInt(formData.approval_tier),
+        }),
       });
       const data = await response.json();
       if (response.ok) {
         setFormData({
-          name: '',
-          phone: '',
-          email: '',
-          department: '',
-          approval_tier: '1'
+          name: "",
+          phone: "",
+          email: "",
+          department: "",
+          approval_tier: "1",
         });
         // Refresh users list
         fetchUsers();
@@ -137,64 +143,82 @@ export default function Users() {
     }
   };
 
+  // Handle row click to open edit modal
   const handleRowClick = (user: User) => {
     setSelectedUser(user);
     setEditFormData({
       name: user.name,
-      phone: user.phone || '',
+      phone: user.phone || "",
       email: user.email,
-      department: user.department || '',
-      approval_tier: user.approval_tier.toString()
+      department: user.department || "",
+      approval_tier: user.approval_tier.toString(),
     });
     setShowEditModal(true);
   };
 
-  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Handle edit form input changes
+  const handleEditFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setEditFormData({
       ...editFormData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
+  // Handle edit form submission
   const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
 
     // Check for duplicate name (excluding current user)
-    const existingUserByName = users.find(u => u.name.toLowerCase() === editFormData.name.toLowerCase() && u.id !== selectedUser.id);
+    const existingUserByName = users.find(
+      (u) =>
+        u.name.toLowerCase() === editFormData.name.toLowerCase() &&
+        u.id !== selectedUser.id
+    );
     if (existingUserByName) {
-      alert('A user with this name already exists.');
+      alert("A user with this name already exists.");
       return;
     }
 
     // Check for duplicate email (excluding current user)
-    const existingUser = users.find(u => u.email.toLowerCase() === editFormData.email.toLowerCase() && u.id !== selectedUser.id);
+    const existingUser = users.find(
+      (u) =>
+        u.email.toLowerCase() === editFormData.email.toLowerCase() &&
+        u.id !== selectedUser.id
+    );
     if (existingUser) {
-      alert('A user with this email already exists.');
+      alert("A user with this email already exists.");
       return;
     }
 
     // Check for duplicate phone (excluding current user)
-    const existingUserByPhone = users.find(u => u.phone === editFormData.phone && u.id !== selectedUser.id);
+    const existingUserByPhone = users.find(
+      (u) => u.phone === editFormData.phone && u.id !== selectedUser.id
+    );
     if (existingUserByPhone) {
-      alert('A user with this phone number already exists.');
+      alert("A user with this phone number already exists.");
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/users/${selectedUser.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: editFormData.name,
-          phone: editFormData.phone,
-          email: editFormData.email,
-          department: editFormData.department,
-          approval_tier: parseInt(editFormData.approval_tier)
-        })
-      });
+      const response = await fetch(
+        `http://localhost:8000/users/${selectedUser.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: editFormData.name,
+            phone: editFormData.phone,
+            email: editFormData.email,
+            department: editFormData.department,
+            approval_tier: parseInt(editFormData.approval_tier),
+          }),
+        }
+      );
       const data = await response.json();
       if (response.ok) {
         fetchUsers();
@@ -207,6 +231,7 @@ export default function Users() {
     }
   };
 
+  //  Handle fixer deletion
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
 
@@ -215,9 +240,12 @@ export default function Users() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/users/${selectedUser.id}`, {
-        method: 'DELETE'
-      });
+      const response = await fetch(
+        `http://localhost:8000/users/${selectedUser.id}`,
+        {
+          method: "DELETE",
+        }
+      );
       const data = await response.json();
       if (response.ok) {
         fetchUsers();
@@ -230,31 +258,44 @@ export default function Users() {
     }
   };
 
+  // Close edit model
   const closeEditModal = () => {
     setShowEditModal(false);
     setSelectedUser(null);
     setEditFormData({
-      name: '',
-      phone: '',
-      email: '',
-      department: '',
-      approval_tier: '1'
+      name: "",
+      phone: "",
+      email: "",
+      department: "",
+      approval_tier: "1",
     });
   };
 
+  // Close create modal
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setFormData({
-      name: '',
-      phone: '',
-      email: '',
-      department: '',
-      approval_tier: '1'
+      name: "",
+      phone: "",
+      email: "",
+      department: "",
+      approval_tier: "1",
     });
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading users...</div>;
-  if (error) return <div className="flex items-center justify-center min-h-screen text-red-600">Error: {error}</div>;
+  // Render loading, error, and main content
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading users...
+      </div>
+    );
+  if (error)
+    return (
+      <div className="flex items-center justify-center min-h-screen text-red-600">
+        Error: {error}
+      </div>
+    );
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -262,9 +303,21 @@ export default function Users() {
       <div className="w-64 bg-gray-800 text-white p-4">
         <h2 className="text-xl font-bold mb-4">Navigation</h2>
         <ul>
-          <li className="mb-2"><a href="/" className="hover:text-gray-300">Dashboard</a></li>
-          <li className="mb-2"><a href="/users" className="hover:text-gray-300">Approvers</a></li>
-          <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Engineers</a></li>
+          <li className="mb-2">
+            <a href="/" className="hover:text-gray-300">
+              Dashboard
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="/users" className="hover:text-gray-300">
+              Approvers
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="/fixers" className="hover:text-gray-300">
+              Engineers
+            </a>
+          </li>
         </ul>
       </div>
 
@@ -307,9 +360,13 @@ export default function Users() {
                     <td className="px-4 py-2 truncate">{user.id}</td>
                     <td className="px-4 py-2 truncate">{user.name}</td>
                     <td className="px-4 py-2 truncate">{user.email}</td>
-                    <td className="px-4 py-2 truncate">{user.phone || '-'}</td>
-                    <td className="px-4 py-2 truncate">{user.department || '-'}</td>
-                    <td className="px-4 py-2 truncate">{user.approval_tier || '-'}</td>
+                    <td className="px-4 py-2 truncate">{user.phone || "-"}</td>
+                    <td className="px-4 py-2 truncate">
+                      {user.department || "-"}
+                    </td>
+                    <td className="px-4 py-2 truncate">
+                      {user.approval_tier || "-"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -334,7 +391,9 @@ export default function Users() {
               <form onSubmit={handleFormSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name
+                    </label>
                     <input
                       type="text"
                       name="name"
@@ -346,7 +405,9 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone
+                    </label>
                     <input
                       type="tel"
                       name="phone"
@@ -357,7 +418,9 @@ export default function Users() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
                     <input
                       type="email"
                       name="email"
@@ -369,7 +432,9 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Department
+                    </label>
                     <select
                       name="department"
                       value={formData.department}
@@ -385,7 +450,9 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Approval Tier</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Approval Tier
+                    </label>
                     <select
                       name="approval_tier"
                       value={formData.approval_tier}
@@ -412,8 +479,8 @@ export default function Users() {
                     disabled={!isCreateFormValid}
                     className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       isCreateFormValid
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-gray-400 text-gray-200 cursor-not-allowed"
                     }`}
                   >
                     Create User
@@ -432,7 +499,9 @@ export default function Users() {
               <form onSubmit={handleEditFormSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name
+                    </label>
                     <input
                       type="text"
                       name="name"
@@ -444,7 +513,9 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone
+                    </label>
                     <input
                       type="tel"
                       name="phone"
@@ -455,7 +526,9 @@ export default function Users() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
                     <input
                       type="email"
                       name="email"
@@ -467,7 +540,9 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Department
+                    </label>
                     <select
                       name="department"
                       value={editFormData.department}
@@ -483,7 +558,9 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Approval Tier</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Approval Tier
+                    </label>
                     <select
                       name="approval_tier"
                       value={editFormData.approval_tier}
@@ -518,8 +595,8 @@ export default function Users() {
                       disabled={!isEditFormValid}
                       className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isEditFormValid
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "bg-gray-400 text-gray-200 cursor-not-allowed"
                       }`}
                     >
                       Update User

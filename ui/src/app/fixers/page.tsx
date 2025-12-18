@@ -1,14 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useMemo } from 'react';
-
-interface Fixer {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  department: string;
-}
+import { useEffect, useState, useMemo } from "react";
+import { Fixer } from "../types";
 
 export default function Fixers() {
   const [fixers, setFixers] = useState<Fixer[]>([]);
@@ -18,106 +11,120 @@ export default function Fixers() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedFixer, setSelectedFixer] = useState<Fixer | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    department: ''
+    name: "",
+    phone: "",
+    email: "",
+    department: "",
   });
   const [editFormData, setEditFormData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    department: ''
+    name: "",
+    phone: "",
+    email: "",
+    department: "",
   });
 
   // Check if create form is valid (all fields must be filled)
   const isCreateFormValid = useMemo(() => {
-    return formData.name.trim() !== '' &&
-           formData.phone.trim() !== '' &&
-           formData.email.trim() !== '' &&
-           formData.department !== '';
+    return (
+      formData.name.trim() !== "" &&
+      formData.phone.trim() !== "" &&
+      formData.email.trim() !== "" &&
+      formData.department !== ""
+    );
   }, [formData]);
 
   // Check if edit form is valid (all fields must be filled)
   const isEditFormValid = useMemo(() => {
-    return editFormData.name.trim() !== '' &&
-           editFormData.phone.trim() !== '' &&
-           editFormData.email.trim() !== '' &&
-           editFormData.department !== '';
+    return (
+      editFormData.name.trim() !== "" &&
+      editFormData.phone.trim() !== "" &&
+      editFormData.email.trim() !== "" &&
+      editFormData.department !== ""
+    );
   }, [editFormData]);
 
+  // Fetch fixers on component mount
   useEffect(() => {
     fetchFixers();
   }, []);
 
+  // Function to fetch fixers from backend
   const fetchFixers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:8000/fixers');
+      const response = await fetch("http://localhost:8000/fixers");
       const data = await response.json();
       if (response.ok) {
         setFixers(data.fixers || []);
       } else {
-        setError(data.error || 'Failed to fetch fixers');
+        setError(data.error || "Failed to fetch fixers");
       }
     } catch (err) {
-      setError('Failed to fetch fixers');
+      setError("Failed to fetch fixers");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Handle form input changes
+  const handleFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
+  //  Handle form submission for creating a new fixer
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Check for duplicate name
-    const existingFixerByName = fixers.find(f => f.name.toLowerCase() === formData.name.toLowerCase());
+    const existingFixerByName = fixers.find(
+      (f) => f.name.toLowerCase() === formData.name.toLowerCase()
+    );
     if (existingFixerByName) {
-      alert('A fixer with this name already exists.');
+      alert("A fixer with this name already exists.");
       return;
     }
-    
+
     // Check for duplicate email
-    const existingFixer = fixers.find(f => f.email.toLowerCase() === formData.email.toLowerCase());
+    const existingFixer = fixers.find(
+      (f) => f.email.toLowerCase() === formData.email.toLowerCase()
+    );
     if (existingFixer) {
-      alert('A fixer with this email already exists.');
+      alert("A fixer with this email already exists.");
       return;
     }
 
     // Check for duplicate phone
-    const existingFixerByPhone = fixers.find(f => f.phone === formData.phone);
+    const existingFixerByPhone = fixers.find((f) => f.phone === formData.phone);
     if (existingFixerByPhone) {
-      alert('A fixer with this phone number already exists.');
+      alert("A fixer with this phone number already exists.");
       return;
     }
-    
+
     try {
-      const response = await fetch('http://localhost:8000/fixers', {
-        method: 'POST',
+      const response = await fetch("http://localhost:8000/fixers", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           name: formData.name,
           phone: formData.phone,
           email: formData.email,
-          department: formData.department
-        })
+          department: formData.department,
+        }),
       });
       const data = await response.json();
       if (response.ok) {
         setFormData({
-          name: '',
-          phone: '',
-          email: '',
-          department: ''
+          name: "",
+          phone: "",
+          email: "",
+          department: "",
         });
         // Refresh fixers list
         fetchFixers();
@@ -130,62 +137,80 @@ export default function Fixers() {
     }
   };
 
+  // Handle row click to open edit modal
   const handleRowClick = (fixer: Fixer) => {
     setSelectedFixer(fixer);
     setEditFormData({
       name: fixer.name,
-      phone: fixer.phone || '',
+      phone: fixer.phone || "",
       email: fixer.email,
-      department: fixer.department || ''
+      department: fixer.department || "",
     });
     setShowEditModal(true);
   };
 
-  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Handle edit form input changes
+  const handleEditFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setEditFormData({
       ...editFormData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
+  // Handle edit form submission
   const handleEditFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFixer) return;
 
     // Check for duplicate name (excluding current fixer)
-    const existingFixerByName = fixers.find(f => f.name.toLowerCase() === editFormData.name.toLowerCase() && f.id !== selectedFixer.id);
+    const existingFixerByName = fixers.find(
+      (f) =>
+        f.name.toLowerCase() === editFormData.name.toLowerCase() &&
+        f.id !== selectedFixer.id
+    );
     if (existingFixerByName) {
-      alert('A fixer with this name already exists.');
+      alert("A fixer with this name already exists.");
       return;
     }
 
     // Check for duplicate email (excluding current fixer)
-    const existingFixer = fixers.find(f => f.email.toLowerCase() === editFormData.email.toLowerCase() && f.id !== selectedFixer.id);
+    const existingFixer = fixers.find(
+      (f) =>
+        f.email.toLowerCase() === editFormData.email.toLowerCase() &&
+        f.id !== selectedFixer.id
+    );
     if (existingFixer) {
-      alert('A fixer with this email already exists.');
+      alert("A fixer with this email already exists.");
       return;
     }
 
     // Check for duplicate phone (excluding current fixer)
-    const existingFixerByPhone = fixers.find(f => f.phone === editFormData.phone && f.id !== selectedFixer.id);
+    const existingFixerByPhone = fixers.find(
+      (f) => f.phone === editFormData.phone && f.id !== selectedFixer.id
+    );
     if (existingFixerByPhone) {
-      alert('A fixer with this phone number already exists.');
+      alert("A fixer with this phone number already exists.");
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/fixers/${selectedFixer.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: editFormData.name,
-          phone: editFormData.phone,
-          email: editFormData.email,
-          department: editFormData.department
-        })
-      });
+      const response = await fetch(
+        `http://localhost:8000/fixers/${selectedFixer.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: editFormData.name,
+            phone: editFormData.phone,
+            email: editFormData.email,
+            department: editFormData.department,
+          }),
+        }
+      );
       const data = await response.json();
       if (response.ok) {
         fetchFixers();
@@ -198,6 +223,7 @@ export default function Fixers() {
     }
   };
 
+  //  Handle fixer deletion
   const handleDeleteFixer = async () => {
     if (!selectedFixer) return;
 
@@ -206,9 +232,12 @@ export default function Fixers() {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/fixers/${selectedFixer.id}`, {
-        method: 'DELETE'
-      });
+      const response = await fetch(
+        `http://localhost:8000/fixers/${selectedFixer.id}`,
+        {
+          method: "DELETE",
+        }
+      );
       const data = await response.json();
       if (response.ok) {
         fetchFixers();
@@ -221,29 +250,42 @@ export default function Fixers() {
     }
   };
 
+  // Close edit model
   const closeEditModal = () => {
     setShowEditModal(false);
     setSelectedFixer(null);
     setEditFormData({
-      name: '',
-      phone: '',
-      email: '',
-      department: ''
+      name: "",
+      phone: "",
+      email: "",
+      department: "",
     });
   };
 
+  // Close create modal
   const closeCreateModal = () => {
     setShowCreateModal(false);
     setFormData({
-      name: '',
-      phone: '',
-      email: '',
-      department: ''
+      name: "",
+      phone: "",
+      email: "",
+      department: "",
     });
   };
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen">Loading fixers...</div>;
-  if (error) return <div className="flex items-center justify-center min-h-screen text-red-600">Error: {error}</div>;
+  // Render loading, error, and main content
+  if (loading)
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading fixers...
+      </div>
+    );
+  if (error)
+    return (
+      <div className="flex items-center justify-center min-h-screen text-red-600">
+        Error: {error}
+      </div>
+    );
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -251,9 +293,21 @@ export default function Fixers() {
       <div className="w-64 bg-gray-800 text-white p-4">
         <h2 className="text-xl font-bold mb-4">Navigation</h2>
         <ul>
-          <li className="mb-2"><a href="/" className="hover:text-gray-300">Dashboard</a></li>
-          <li className="mb-2"><a href="/users" className="hover:text-gray-300">Approvers</a></li>
-          <li className="mb-2"><a href="/fixers" className="hover:text-gray-300">Engineers</a></li>
+          <li className="mb-2">
+            <a href="/" className="hover:text-gray-300">
+              Dashboard
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="/users" className="hover:text-gray-300">
+              Approvers
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="/fixers" className="hover:text-gray-300">
+              Engineers
+            </a>
+          </li>
         </ul>
       </div>
 
@@ -295,8 +349,10 @@ export default function Fixers() {
                     <td className="px-4 py-2 truncate">{fixer.id}</td>
                     <td className="px-4 py-2 truncate">{fixer.name}</td>
                     <td className="px-4 py-2 truncate">{fixer.email}</td>
-                    <td className="px-4 py-2 truncate">{fixer.phone || '-'}</td>
-                    <td className="px-4 py-2 truncate">{fixer.department || '-'}</td>
+                    <td className="px-4 py-2 truncate">{fixer.phone || "-"}</td>
+                    <td className="px-4 py-2 truncate">
+                      {fixer.department || "-"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -321,7 +377,9 @@ export default function Fixers() {
               <form onSubmit={handleFormSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name
+                    </label>
                     <input
                       type="text"
                       name="name"
@@ -333,7 +391,9 @@ export default function Fixers() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone
+                    </label>
                     <input
                       type="tel"
                       name="phone"
@@ -344,7 +404,9 @@ export default function Fixers() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
                     <input
                       type="email"
                       name="email"
@@ -356,7 +418,9 @@ export default function Fixers() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Department
+                    </label>
                     <select
                       name="department"
                       value={formData.department}
@@ -385,8 +449,8 @@ export default function Fixers() {
                     disabled={!isCreateFormValid}
                     className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       isCreateFormValid
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                        ? "bg-blue-600 text-white hover:bg-blue-700"
+                        : "bg-gray-400 text-gray-200 cursor-not-allowed"
                     }`}
                   >
                     Create Fixer
@@ -405,7 +469,9 @@ export default function Fixers() {
               <form onSubmit={handleEditFormSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Name
+                    </label>
                     <input
                       type="text"
                       name="name"
@@ -417,7 +483,9 @@ export default function Fixers() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone
+                    </label>
                     <input
                       type="tel"
                       name="phone"
@@ -428,7 +496,9 @@ export default function Fixers() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email
+                    </label>
                     <input
                       type="email"
                       name="email"
@@ -440,7 +510,9 @@ export default function Fixers() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Department
+                    </label>
                     <select
                       name="department"
                       value={editFormData.department}
@@ -477,8 +549,8 @@ export default function Fixers() {
                       disabled={!isEditFormValid}
                       className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isEditFormValid
-                          ? 'bg-blue-600 text-white hover:bg-blue-700'
-                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                          ? "bg-blue-600 text-white hover:bg-blue-700"
+                          : "bg-gray-400 text-gray-200 cursor-not-allowed"
                       }`}
                     >
                       Update Fixer
