@@ -6,6 +6,7 @@ from utils import (
     trigger_tav_workflow_pre_breach,
     trigger_tav_workflow_sla_breached,
     SLA_HOURS_DICT,
+    PRE_BREACH_SECONDS,
 )
 
 router = APIRouter()
@@ -64,11 +65,11 @@ async def get_tickets():
                 )
                 current_time = datetime.utcnow() + timedelta(hours=8)
 
-                # Check pre-breach (30 seconds before for testing)
+                # Check pre-breach
                 if (
                     not ticket.get("pre_breach_triggered", False)
                     and ticket["status"] not in ["closed", "sla_breached"]
-                    and current_time >= breach_time - timedelta(seconds=30)
+                    and current_time >= breach_time - timedelta(seconds=PRE_BREACH_SECONDS)
                 ):
                     payload = {
                         "ticket_id": ticket["id"],
