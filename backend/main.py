@@ -240,24 +240,28 @@ async def get_tickets():
             if ticket.get('sla_start_time'):
                 # Fetch phones
                 approver_phone = None
+                approver_email = None
                 if ticket['approver']:
                     conn_temp = get_db_connection()
                     cursor_temp = conn_temp.cursor()
-                    cursor_temp.execute("SELECT phone FROM users WHERE name = %s LIMIT 1", (ticket['approver'],))
+                    cursor_temp.execute("SELECT phone, email FROM users WHERE name = %s LIMIT 1", (ticket['approver'],))
                     result = cursor_temp.fetchone()
                     if result:
                         approver_phone = result[0]
+                        approver_email = result[1]
                     cursor_temp.close()
                     conn_temp.close()
                 
                 fixer_phone = None
+                fixer_email = None
                 if ticket['fixer']:
                     conn_temp = get_db_connection()
                     cursor_temp = conn_temp.cursor()
-                    cursor_temp.execute("SELECT phone FROM fixers WHERE name = %s LIMIT 1", (ticket['fixer'],))
+                    cursor_temp.execute("SELECT phone, email FROM fixers WHERE name = %s LIMIT 1", (ticket['fixer'],))
                     result = cursor_temp.fetchone()
                     if result:
                         fixer_phone = result[0]
+                        fixer_email = result[1]
                     cursor_temp.close()
                     conn_temp.close()
                 
@@ -312,8 +316,10 @@ async def get_tickets():
                         "sla_hours": sla_hours_value,
                         "approver": ticket['approver'],
                         "approver_phone": approver_phone,
+                        'approver_email': approver_email,
                         "fixer": ticket['fixer'],
                         "fixer_phone": fixer_phone,
+                        'fixer_email': fixer_email,
                         "attachment_upload": ticket['attachment_upload'],
                     }
                     await trigger_tav_workflow_sla_breached(payload)
@@ -464,27 +470,29 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 hours = sla_hours.get(ticket_data['severity'].lower(), 72)
                 actual_breach_time = ticket_data['sla_start_time'] + timedelta(hours=hours)
                 
-                # Fetch approver phone
-                approver_phone = None
+                # Fetch approver email
+                approver_email = None
                 if ticket_data['approver']:
                     conn = get_db_connection()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT phone FROM users WHERE name = %s LIMIT 1", (ticket_data['approver'],))
+                    cursor.execute("SELECT email FROM users WHERE name = %s LIMIT 1", (ticket_data['approver'],))
                     result = cursor.fetchone()
                     if result:
-                        approver_phone = result[0]
+                        approver_email = result[0]
                     cursor.close()
                     conn.close()
                 
-                # Fetch fixer phone
+                # Fetch fixer email
                 fixer_phone = None
+                fixer_email = None
                 if ticket_data['fixer']:
                     conn = get_db_connection()
                     cursor = conn.cursor()
-                    cursor.execute("SELECT phone FROM fixers WHERE name = %s LIMIT 1", (ticket_data['fixer'],))
+                    cursor.execute("SELECT phone, email FROM fixers WHERE name = %s LIMIT 1", (ticket_data['fixer'],))
                     result = cursor.fetchone()
                     if result:
                         fixer_phone = result[0]
+                        fixer_email = result[1]
                     cursor.close()
                     conn.close()
                 
@@ -497,8 +505,10 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                     "breach_time": actual_breach_time.strftime("%d/%m/%y %H:%M"),
                     "sla_hours": hours,
                     "approver": ticket_data["approver"],
+                    'approver_email': approver_email,
                     "fixer": ticket_data["fixer"],
                     "fixer_phone": fixer_phone,
+                    "fixer_email": fixer_email,
                     "attachment_upload": ticket_data["attachment_upload"],
                 }
                 
@@ -638,19 +648,19 @@ async def create_ticket(ticket: dict):
         cursor.close()
         conn.close()
 
-        # Fetch approver phone number from users table
+        # Fetch approver phone number and email from users table
         approver_phone = None
+        approver_email = None
         if approver_name:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT phone FROM users WHERE name = %s LIMIT 1
-            """, (approver_name,))
-            result = cursor.fetchone()
+            conn_temp = get_db_connection()
+            cursor_temp = conn_temp.cursor()
+            cursor_temp.execute("SELECT phone, email FROM users WHERE name = %s LIMIT 1", (approver_name,))
+            result = cursor_temp.fetchone()
             if result:
                 approver_phone = result[0]
-            cursor.close()
-            conn.close()
+                approver_email = result[1]
+            cursor_temp.close()
+            conn_temp.close()
 
         # Fetch fixer phone number from fixers table
         fixer_phone = None
@@ -675,6 +685,7 @@ async def create_ticket(ticket: dict):
             "date_created": current_time.strftime("%d/%m/%y %H:%M"),
             "approver": approver_name,
             "approver_phone": approver_phone,
+            "approver_email": approver_email,
             'fixer': ticket.get('assigned_to'),
             'fixer_phone': fixer_phone
         }
