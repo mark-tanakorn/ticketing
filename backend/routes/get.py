@@ -3,9 +3,9 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from utils import (
     get_db_connection,
-    SLA_HOURS_DICT,
     trigger_tav_workflow_pre_breach,
     trigger_tav_workflow_sla_breached,
+    SLA_HOURS_DICT,
 )
 
 router = APIRouter()
