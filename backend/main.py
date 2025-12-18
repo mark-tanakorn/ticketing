@@ -7,6 +7,14 @@ import random
 from datetime import datetime, timedelta
 import httpx
 import os
+from utils import (
+    get_db_connection,
+    SLA_HOURS_DICT,
+    trigger_tav_workflow,
+    trigger_tav_workflow_updated,
+    trigger_tav_workflow_sla_breached,
+    trigger_tav_workflow_pre_breach,
+)
 
 app = FastAPI()
 
@@ -18,16 +26,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# PostgreSQL connection
-def get_db_connection():
-    return psycopg2.connect(
-        host="localhost",
-        database="ticketing_db",
-        user="ticketing_user",
-        password="mysecretpassword",
-        port=5432
-    )
 
 # Create tables if they don't exist (don't drop existing data)
 @app.on_event("startup")
@@ -230,12 +228,6 @@ async def get_tickets():
         conn.close()
         
         # Check and update SLA breaches and pre-breaches
-        sla_hours_dict = {
-            'low': 72,
-            'medium': 48,
-            'high': 24,
-            'critical': 1/60  # 1 minute for testing
-        }
         for ticket in tickets:
             if ticket.get('sla_start_time'):
                 # Fetch phones
@@ -265,7 +257,7 @@ async def get_tickets():
                     cursor_temp.close()
                     conn_temp.close()
                 
-                sla_hours_value = sla_hours_dict.get(ticket['severity'].lower(), 72)
+                sla_hours_value = SLA_HOURS_DICT.get(ticket['severity'].lower(), 72)
                 breach_time = ticket['sla_start_time'] + timedelta(hours=sla_hours_value)
                 current_time = datetime.utcnow() + timedelta(hours=8)
                 
@@ -327,66 +319,6 @@ async def get_tickets():
         return {"tickets": tickets}
     except Exception as e:
         return {"error": str(e)}
-
-# Add TAV constants and helper function
-# For local dev, TAV typically runs at http://localhost:5000
-# Override via env vars if you're targeting a remote TAV instance.
-TAV_BASE_URL = os.getenv("TAV_BASE_URL", "http://localhost:5001")
-TAV_WORKFLOW_ID = os.getenv("TAV_WORKFLOW_ID", "31220e0d-1a92-40ae-8cbc-400f3ec1b469")
-
-async def trigger_tav_workflow(ticket_payload: dict) -> None:
-    url = f"{TAV_BASE_URL}/api/v1/workflows/{TAV_WORKFLOW_ID}/execute"
-    body = {"trigger_data": ticket_payload}
-
-    async with httpx.AsyncClient(timeout=10) as client:
-        # If TAV dev-mode is enabled, no Authorization header is needed.
-        r = await client.post(url, json=body)
-        r.raise_for_status()
-
-
-async def trigger_tav_workflow_updated(ticket_payload: dict) -> None:
-    # Use the new workflow ID for approved tickets
-    updated_workflow_id = "69e99f3d-d527-49ff-9210-e1759696cda2"
-    url = f"{TAV_BASE_URL}/api/v1/workflows/{updated_workflow_id}/execute"
-    body = {"trigger_data": ticket_payload}
-
-    async with httpx.AsyncClient(timeout=10) as client:
-        # If TAV dev-mode is enabled, no Authorization header is needed.
-        r = await client.post(url, json=body)
-        r.raise_for_status()
-
-
-async def trigger_tav_workflow_sla_breached(ticket_payload: dict) -> None:
-    # Use the workflow ID for SLA breached tickets
-    sla_breached_workflow_id = "004d3aaf-0914-4535-bc56-bd5fabc31dd5"
-    url = f"{TAV_BASE_URL}/api/v1/workflows/{sla_breached_workflow_id}/execute"
-    body = {"trigger_data": ticket_payload}
-
-    print(f"Attempting to trigger SLA breached workflow for ticket {ticket_payload.get('Ticket ID')} at {url}")
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            # If TAV dev-mode is enabled, no Authorization header is needed.
-            r = await client.post(url, json=body)
-            r.raise_for_status()
-            print(f"SLA breached workflow triggered successfully for ticket {ticket_payload.get('Ticket ID')}")
-    except Exception as e:
-        print(f"Failed to trigger SLA breached workflow: {e}")
-
-async def trigger_tav_workflow_pre_breach(ticket_payload: dict) -> None:
-    # Use the workflow ID for pre-breach notification (30 seconds before for testing)
-    pre_breach_workflow_id = "1d25d573-3569-496f-91c5-0ad1d756026e"
-    url = f"{TAV_BASE_URL}/api/v1/workflows/{pre_breach_workflow_id}/execute"
-    body = {"trigger_data": ticket_payload}
-
-    print(f"Attempting to trigger pre-breach workflow for ticket {ticket_payload.get('ticket_id')} at {url}")
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            # If TAV dev-mode is enabled, no Authorization header is needed.
-            r = await client.post(url, json=body)
-            r.raise_for_status()
-            print(f"Pre-breach workflow triggered successfully for ticket {ticket_payload.get('ticket_id')}")
-    except Exception as e:
-        print(f"Failed to trigger pre-breach workflow: {e}")
 
 class TicketApprovalPayload(BaseModel):
     approved: bool
@@ -461,13 +393,7 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
             
             if ticket_data:
                 # Calculate the correct breach_time based on sla_start_time
-                sla_hours = {
-                    'low': 72,
-                    'medium': 48,
-                    'high': 24,
-                    'critical': 1/60  # 1 minute for testing
-                }
-                hours = sla_hours.get(ticket_data['severity'].lower(), 72)
+                hours = SLA_HOURS_DICT.get(ticket_data['severity'].lower(), 72)
                 actual_breach_time = ticket_data['sla_start_time'] + timedelta(hours=hours)
                 
                 # Fetch approver email
