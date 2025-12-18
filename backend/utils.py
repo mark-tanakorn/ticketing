@@ -24,7 +24,7 @@ TAV_BASE_URL = os.getenv("TAV_BASE_URL", "http://localhost:5001")
 
 
 # Trigger contact approver workflow
-async def trigger_tav_workflow(ticket_payload: dict) -> None:
+async def trigger_contact_approver_workflow(ticket_payload: dict) -> None:
     CONTACT_APPROVER_WORKFLOW = os.getenv(
         "CONTACT_APPROVER_WORKFLOW", "31220e0d-1a92-40ae-8cbc-400f3ec1b469"
     )
@@ -36,7 +36,7 @@ async def trigger_tav_workflow(ticket_payload: dict) -> None:
 
 
 # Trigger contact fixer workflow
-async def trigger_tav_workflow_updated(ticket_payload: dict) -> None:
+async def trigger_contact_fixer_workflow(ticket_payload: dict) -> None:
     CONTACT_FIXER_WORKFLOW = os.getenv(
         "CONTACT_FIXER_WORKFLOW", "69e99f3d-d527-49ff-9210-e1759696cda2"
     )
@@ -48,7 +48,7 @@ async def trigger_tav_workflow_updated(ticket_payload: dict) -> None:
 
 
 # Trigger SLA breached workflow
-async def trigger_tav_workflow_sla_breached(ticket_payload: dict) -> None:
+async def trigger_sla_breached_workflow(ticket_payload: dict) -> None:
     SLA_BREACH_WORKFLOW = os.getenv(
         "SLA_BREACH_WORKFLOW", "004d3aaf-0914-4535-bc56-bd5fabc31dd5"
     )
@@ -60,7 +60,7 @@ async def trigger_tav_workflow_sla_breached(ticket_payload: dict) -> None:
 
 
 # Trigger SLA pre-breach workflow
-async def trigger_tav_workflow_pre_breach(ticket_payload: dict) -> None:
+async def trigger_sla_prebreached_workflow(ticket_payload: dict) -> None:
     SLA_PREBREACH_WORKFLOW = os.getenv(
         "SLA_PREBREACH_WORKFLOW", "1d25d573-3569-496f-91c5-0ad1d756026e"
     )
@@ -121,7 +121,8 @@ def init_database_tables():
                 approver_decided_at TIMESTAMP,
                 tav_execution_id TEXT,
                 sla_start_time TIMESTAMP,
-                pre_breach_triggered BOOLEAN DEFAULT FALSE
+                pre_breach_triggered BOOLEAN DEFAULT FALSE,
+                breach_triggered BOOLEAN DEFAULT FALSE
             );
         """
         )

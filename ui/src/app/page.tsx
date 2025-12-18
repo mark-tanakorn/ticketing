@@ -222,9 +222,8 @@ export default function Home() {
     );
   }, [editFormData]);
 
-  // Fetch initial data on component mount
-  useEffect(() => {
-    // Fetch tickets
+  // Function to fetch tickets
+  const fetchTickets = () => {
     fetch("http://localhost:8000/tickets")
       .then((res) => res.json())
       .then((data) => {
@@ -236,6 +235,11 @@ export default function Home() {
         setTickets([]);
         setLoading(false);
       });
+  };
+
+  // Fetch initial data on component mount
+  useEffect(() => {
+    fetchTickets();
 
     // Fetch fixers
     fetch("http://localhost:8000/fixers")
@@ -247,6 +251,15 @@ export default function Home() {
         console.error("Error fetching fixers:", err);
         setFixers([]);
       });
+  }, []);
+
+  // Polling for tickets every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchTickets();
+    }, 10000); // 10 seconds
+
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
   // Memoized filtered and sorted tickets based on search and sort criteria

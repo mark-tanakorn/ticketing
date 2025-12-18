@@ -4,8 +4,8 @@ import random
 from datetime import datetime, timedelta
 from utils import (
     get_db_connection,
-    trigger_tav_workflow,
-    trigger_tav_workflow_updated,
+    trigger_contact_approver_workflow,
+    trigger_contact_fixer_workflow,
     SLA_HOURS_DICT,
     TicketApprovalPayload,
     TicketStatusPayload,
@@ -105,7 +105,7 @@ async def create_ticket(ticket: dict):
             conn.close()
 
         # Craft the payload for TAV workflow
-        ticket_payload = {
+        contact_approver_payload = {
             "ticket_id": ticket_id,
             "title": ticket.get("title"),
             "description": ticket.get("description"),
@@ -123,7 +123,7 @@ async def create_ticket(ticket: dict):
         }
 
         # Trigger TAV workflow
-        await trigger_tav_workflow(ticket_payload)
+        await trigger_contact_approver_workflow(contact_approver_payload)
 
         return {"message": "Ticket created successfully"}
     except Exception as e:
@@ -354,7 +354,7 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                     conn.close()
 
                 # Create payload for the updated workflow
-                updated_payload = {
+                contact_fixer_payload = {
                     "ticket_id": ticket_id,
                     "title": ticket_data["title"],
                     "description": ticket_data["description"],
@@ -367,10 +367,11 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                     "fixer_phone": fixer_phone,
                     "fixer_email": fixer_email,
                     "attachment_upload": ticket_data["attachment_upload"],
+                    "approver_decided_at": ticket_data["approver_decided_at"].strftime("%d/%m/%y %H:%M"),
                 }
 
                 # Trigger the updated workflow
-                await trigger_tav_workflow_updated(updated_payload)
+                await trigger_contact_fixer_workflow(contact_fixer_payload)
 
         return {
             "message": "Approval decision recorded",

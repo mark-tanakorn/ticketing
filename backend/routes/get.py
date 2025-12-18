@@ -3,8 +3,8 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from utils import (
     get_db_connection,
-    trigger_tav_workflow_pre_breach,
-    trigger_tav_workflow_sla_breached,
+    trigger_sla_prebreached_workflow,
+    trigger_sla_breached_workflow,
     SLA_HOURS_DICT,
     PRE_BREACH_SECONDS,
 )
@@ -71,7 +71,7 @@ async def get_tickets():
                     and ticket["status"] not in ["closed", "sla_breached"]
                     and current_time >= breach_time - timedelta(seconds=PRE_BREACH_SECONDS)
                 ):
-                    payload = {
+                    sla_prebreached_payload = {
                         "ticket_id": ticket["id"],
                         "title": ticket["title"],
                         "description": ticket["description"],
@@ -84,7 +84,7 @@ async def get_tickets():
                         "fixer_phone": fixer_phone,
                         "attachment_upload": ticket["attachment_upload"],
                     }
-                    await trigger_tav_workflow_pre_breach(payload)
+                    await trigger_sla_prebreached_workflow(sla_prebreached_payload)
 
                     # Update flag
                     conn = get_db_connection()
@@ -100,23 +100,25 @@ async def get_tickets():
 
                 # Check breach
                 if (
-                    ticket["status"] not in ["sla_breached", "closed"]
+                    not ticket.get("breach_triggered", False)
+                    and ticket["status"] not in ["sla_breached", "closed"]
                     and current_time > breach_time
                 ):
-                    # Update status
+                    # Update status and flag
                     conn = get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute(
-                        "UPDATE tickets SET status = 'sla_breached' WHERE id = %s",
+                        "UPDATE tickets SET status = 'sla_breached', breach_triggered = TRUE WHERE id = %s",
                         (ticket["id"],),
                     )
                     conn.commit()
                     cursor.close()
                     conn.close()
                     ticket["status"] = "sla_breached"
+                    ticket["breach_triggered"] = True
 
                     # Trigger breach workflow
-                    payload = {
+                    sla_breached_payload = {
                         "ticket_id": ticket["id"],
                         "title": ticket["title"],
                         "description": ticket["description"],
@@ -131,7 +133,7 @@ async def get_tickets():
                         "fixer_email": fixer_email,
                         "attachment_upload": ticket["attachment_upload"],
                     }
-                    await trigger_tav_workflow_sla_breached(payload)
+                    await trigger_sla_breached_workflow(sla_breached_payload)
 
         return {"tickets": tickets}
     except Exception as e:
