@@ -78,6 +78,7 @@ async def get_tickets():
                         "severity": ticket["severity"].capitalize(),
                         "breach_time": breach_time.strftime("%d/%m/%y %H:%M"),
                         "sla_hours": sla_hours_value,
+                        "pre_breach_hours": PRE_BREACH_SECONDS / 3600,
                         "approver": ticket["approver"],
                         "approver_phone": approver_phone,
                         "fixer": ticket["fixer"],

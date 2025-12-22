@@ -5,6 +5,7 @@ from routes.delete import router as delete_router
 from routes.get import router as get_router
 from routes.post import router as post_router
 from routes.put import router as put_router
+from routes.settings import router as settings_router
 
 
 app = FastAPI()
@@ -23,6 +24,7 @@ app.include_router(delete_router)
 app.include_router(get_router)
 app.include_router(post_router)
 app.include_router(put_router)
+app.include_router(settings_router)
 
 
 # Create tables if they don't exist

@@ -106,22 +106,16 @@ const CustomLegend = ({
 };
 
 // SLA calculation function to determine time left or breach status
-const getSLATimeLeft = (ticket: Ticket) => {
-  // Define SLA hours based on ticket severity
-  const slaHours = {
-    low: 72,
-    medium: 48,
-    high: 24,
-    critical: 4,
-  };
+const getSLATimeLeft = (ticket: Ticket, settings: Record<string, any>) => {
+  // Use the stored sla_breached_at from database (consistent with backend)
+  const breachDate = ticket.sla_breached_at ? new Date(ticket.sla_breached_at) : null;
 
-  // Calculate the breach date by adding SLA duration to start time in milliseconds
-  const startTime = ticket.sla_start_time || ticket.date_created;
-  const createdDate = new Date(startTime);
-  const slaMs =
-    slaHours[ticket.severity.toLowerCase() as keyof typeof slaHours] *
-    3_600_000;
-  const breachDate = new Date(createdDate.getTime() + slaMs);
+  if (!breachDate) {
+    return {
+      breached: false,
+      timeLeft: "N/A",
+    };
+  }
 
   // Calculate time left until breach in milliseconds
   const now = new Date();
@@ -135,14 +129,16 @@ const getSLATimeLeft = (ticket: Ticket) => {
     };
   }
 
-  // Calculate remaining hours and minutes if SLA has not been breached
+  // Calculate remaining hours, minutes, and seconds if SLA has not been breached
   const hours = Math.floor(timeLeftMs / (1000 * 60 * 60));
   const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeLeftMs % (1000 * 60)) / 1000);
   return {
     breached: false,
-    timeLeft: `${hours}h ${minutes}m`,
+    timeLeft: `${hours}h ${minutes}m ${seconds}s`,
     hours,
     minutes,
+    seconds,
   };
 };
 
@@ -195,6 +191,7 @@ export default function Home() {
   ]);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [creatingTicket, setCreatingTicket] = useState(false);
+  const [settings, setSettings] = useState<Record<string, any>>({});
 
   // Check if create form is valid (all fields except attachment_upload must be filled)
   const isCreateFormValid = useMemo(() => {
@@ -251,6 +248,17 @@ export default function Home() {
       .catch((err) => {
         console.error("Error fetching fixers:", err);
         setFixers([]);
+      });
+
+    // Fetch settings
+    fetch("http://localhost:8000/api/settings/")
+      .then((res) => res.json())
+      .then((data) => {
+        setSettings(data.settings || {});
+      })
+      .catch((err) => {
+        console.error("Error fetching settings:", err);
+        setSettings({});
       });
   }, []);
 
@@ -799,7 +807,7 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-4">Navigation</h2>
         <ul>
           <li className="mb-2">
-            <a href="#" className="hover:text-gray-300">
+            <a href="#" className="text-blue-300 font-semibold">
               Dashboard
             </a>
           </li>
@@ -811,6 +819,11 @@ export default function Home() {
           <li className="mb-2">
             <a href="/fixers" className="hover:text-gray-300">
               Engineers
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="/settings" className="hover:text-gray-300">
+              Settings
             </a>
           </li>
         </ul>
@@ -1668,13 +1681,25 @@ export default function Home() {
                               SLA Target
                             </label>
                             <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                              {selectedTicket.severity === "critical"
-                                ? "4"
-                                : selectedTicket.severity === "high"
-                                ? "24"
-                                : selectedTicket.severity === "medium"
-                                ? "48"
-                                : "72"}
+                              {(() => {
+                                // For approved tickets, show the original agreed SLA hours
+                                if (selectedTicket.sla_start_time && selectedTicket.sla_breached_at) {
+                                  const startTime = new Date(selectedTicket.sla_start_time);
+                                  const breachTime = new Date(selectedTicket.sla_breached_at);
+                                  const agreedHours = Math.round((breachTime.getTime() - startTime.getTime()) / (1000 * 60 * 60));
+                                  return `${agreedHours} hours`;
+                                }
+                                
+                                // For tickets awaiting approval or without SLA, show current policy
+                                const severity = selectedTicket.severity.toLowerCase();
+                                const slaHours = {
+                                  low: settings["SLA_LOW_HOURS"]?.value || 72,
+                                  medium: settings["SLA_MEDIUM_HOURS"]?.value || 48,
+                                  high: settings["SLA_HIGH_HOURS"]?.value || 24,
+                                  critical: settings["SLA_CRITICAL_HOURS"]?.value || 4,
+                                };
+                                return `${slaHours[severity as keyof typeof slaHours] || 72} hours`;
+                              })()}
                             </div>
                           </div>
 
@@ -1723,7 +1748,7 @@ export default function Home() {
                             ? "Closed"
                             : selectedTicket.status === "sla_breached"
                             ? "SLA Breached"
-                            : getSLATimeLeft(selectedTicket).timeLeft}
+                            : getSLATimeLeft(selectedTicket, settings).timeLeft}
                         </div>
                       </div>
                     </div>

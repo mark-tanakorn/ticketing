@@ -304,8 +304,13 @@ export default function Fixers() {
             </a>
           </li>
           <li className="mb-2">
-            <a href="/fixers" className="hover:text-gray-300">
+            <a href="/fixers" className="text-blue-300 font-semibold">
               Engineers
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="/settings" className="hover:text-gray-300">
+              Settings
             </a>
           </li>
         </ul>

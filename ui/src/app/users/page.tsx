@@ -309,13 +309,18 @@ export default function Users() {
             </a>
           </li>
           <li className="mb-2">
-            <a href="/users" className="hover:text-gray-300">
+            <a href="/users" className="text-blue-300 font-semibold">
               Approvers
             </a>
           </li>
           <li className="mb-2">
             <a href="/fixers" className="hover:text-gray-300">
               Engineers
+            </a>
+          </li>
+          <li className="mb-2">
+            <a href="/settings" className="hover:text-gray-300">
+              Settings
             </a>
           </li>
         </ul>

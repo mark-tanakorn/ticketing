@@ -269,6 +269,20 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 detail="reply_text is required when approved=false",
             )
 
+        # Get ticket severity for SLA calculation
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT severity FROM tickets WHERE id = %s", (ticket_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not result:
+            return {"error": f"Ticket {ticket_id} not found"}
+
+        severity = result[0].lower() if result[0] else "low"
+        sla_hours = SLA_HOURS_DICT.get(severity, 72)
+
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -280,7 +294,7 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 approver_decided_at = %s,
                 tav_execution_id = %s,
                 sla_start_time = CASE WHEN %s THEN %s ELSE sla_start_time END,
-                sla_breached_at = CASE WHEN %s THEN %s + INTERVAL '1 hour' * (CASE WHEN severity = 'critical' THEN 1.0/60 WHEN severity = 'high' THEN 24 WHEN severity = 'medium' THEN 48 ELSE 72 END) ELSE sla_breached_at END
+                sla_breached_at = CASE WHEN %s THEN %s + INTERVAL '1 hour' * %s ELSE sla_breached_at END
             WHERE id = %s
             """,
             (
@@ -293,6 +307,7 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                 decided_at,
                 payload.approved,  # Only set sla_breached_at if approved
                 decided_at,
+                sla_hours,  # Use database settings
                 ticket_id,
             ),
         )
