@@ -1,2 +1,0 @@
-"""Trigger nodes package"""
-
