@@ -194,6 +194,7 @@ export default function Home() {
     "pic",
   ]);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [creatingTicket, setCreatingTicket] = useState(false);
 
   // Check if create form is valid (all fields except attachment_upload must be filled)
   const isCreateFormValid = useMemo(() => {
@@ -511,6 +512,9 @@ export default function Home() {
   // Handle create ticket form submission
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creatingTicket) return; // Prevent multiple submissions
+    
+    setCreatingTicket(true);
     try {
       const response = await fetch("http://localhost:8000/tickets", {
         method: "POST",
@@ -545,6 +549,8 @@ export default function Home() {
       }
     } catch (error) {
       // Error handled silently
+    } finally {
+      setCreatingTicket(false);
     }
   };
 
@@ -1481,14 +1487,14 @@ export default function Home() {
                 </button>
                 <button
                   type="submit"
-                  disabled={!isCreateFormValid}
+                  disabled={!isCreateFormValid || creatingTicket}
                   className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    isCreateFormValid
+                    isCreateFormValid && !creatingTicket
                       ? "bg-blue-600 text-white hover:bg-blue-700"
                       : "bg-gray-400 text-gray-200 cursor-not-allowed"
                   }`}
                 >
-                  Create Ticket
+                  {creatingTicket ? "Creating..." : "Create Ticket"}
                 </button>
               </div>
             </form>

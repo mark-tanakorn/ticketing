@@ -321,18 +321,20 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                     hours=hours
                 )
 
-                # Fetch approver email
+                # Fetch approver email and phone
                 approver_email = None
+                approver_phone = None
                 if ticket_data["approver"]:
                     conn = get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute(
-                        "SELECT email FROM users WHERE name = %s LIMIT 1",
+                        "SELECT email, phone FROM users WHERE name = %s LIMIT 1",
                         (ticket_data["approver"],),
                     )
                     result = cursor.fetchone()
                     if result:
                         approver_email = result[0]
+                        approver_phone = result[1]
                     cursor.close()
                     conn.close()
 
@@ -363,6 +365,7 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                     "sla_hours": hours,
                     "approver": ticket_data["approver"],
                     "approver_email": approver_email,
+                    "approver_phone": approver_phone,
                     "fixer": ticket_data["fixer"],
                     "fixer_phone": fixer_phone,
                     "fixer_email": fixer_email,

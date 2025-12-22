@@ -51,8 +51,8 @@ class EmailListenerNode(Node):
             {
                 "name": "email",
                 "type": PortType.UNIVERSAL,
-                "display_name": "Email Data",
-                "description": "Full email payload (metadata + bodies).",
+                "display_name": "Email Body",
+                "description": "Cleaned body text (main message extracted from email).",
                 "required": True,
             },
             {
