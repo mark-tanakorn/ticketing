@@ -25,10 +25,10 @@ TAV_BASE_URL = os.getenv("TAV_BASE_URL", "http://localhost:5001")
 
 # Trigger contact approver workflow
 async def trigger_contact_approver_workflow(ticket_payload: dict) -> None:
-    CONTACT_APPROVER_WORKFLOW = os.getenv(
-        "CONTACT_APPROVER_WORKFLOW", "31220e0d-1a92-40ae-8cbc-400f3ec1b469"
+    CONTACT_APPROVER_WORKFLOW_EMAIL = os.getenv(
+        "CONTACT_APPROVER_WORKFLOW_EMAIL", "31220e0d-1a92-40ae-8cbc-400f3ec1b469"
     )
-    url = f"{TAV_BASE_URL}/api/v1/workflows/{CONTACT_APPROVER_WORKFLOW}/execute"
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{CONTACT_APPROVER_WORKFLOW_EMAIL}/execute"
     body = {"trigger_data": ticket_payload}
     async with httpx.AsyncClient(timeout=10) as client:
         r = await client.post(url, json=body)
@@ -37,10 +37,10 @@ async def trigger_contact_approver_workflow(ticket_payload: dict) -> None:
 
 # Trigger contact fixer workflow
 async def trigger_contact_fixer_workflow(ticket_payload: dict) -> None:
-    CONTACT_FIXER_WORKFLOW = os.getenv(
-        "CONTACT_FIXER_WORKFLOW", "69e99f3d-d527-49ff-9210-e1759696cda2"
+    CONTACT_FIXER_WORKFLOW_EMAIL = os.getenv(
+        "CONTACT_FIXER_WORKFLOW_EMAIL", "69e99f3d-d527-49ff-9210-e1759696cda2"
     )
-    url = f"{TAV_BASE_URL}/api/v1/workflows/{CONTACT_FIXER_WORKFLOW}/execute"
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{CONTACT_FIXER_WORKFLOW_EMAIL}/execute"
     body = {"trigger_data": ticket_payload}
     async with httpx.AsyncClient(timeout=10) as client:
         r = await client.post(url, json=body)
@@ -49,10 +49,10 @@ async def trigger_contact_fixer_workflow(ticket_payload: dict) -> None:
 
 # Trigger SLA breached workflow
 async def trigger_sla_breached_workflow(ticket_payload: dict) -> None:
-    SLA_BREACH_WORKFLOW = os.getenv(
-        "SLA_BREACH_WORKFLOW", "004d3aaf-0914-4535-bc56-bd5fabc31dd5"
+    SLA_BREACH_WORKFLOW_EMAIL = os.getenv(
+        "SLA_BREACH_WORKFLOW_EMAIL", "004d3aaf-0914-4535-bc56-bd5fabc31dd5"
     )
-    url = f"{TAV_BASE_URL}/api/v1/workflows/{SLA_BREACH_WORKFLOW}/execute"
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{SLA_BREACH_WORKFLOW_EMAIL}/execute"
     body = {"trigger_data": ticket_payload}
     async with httpx.AsyncClient(timeout=10) as client:
         r = await client.post(url, json=body)
@@ -61,10 +61,10 @@ async def trigger_sla_breached_workflow(ticket_payload: dict) -> None:
 
 # Trigger SLA pre-breach workflow
 async def trigger_sla_prebreached_workflow(ticket_payload: dict) -> None:
-    SLA_PREBREACH_WORKFLOW = os.getenv(
-        "SLA_PREBREACH_WORKFLOW", "1d25d573-3569-496f-91c5-0ad1d756026e"
+    SLA_PREBREACH_WORKFLOW_EMAIL = os.getenv(
+        "SLA_PREBREACH_WORKFLOW_EMAIL", "1d25d573-3569-496f-91c5-0ad1d756026e"
     )
-    url = f"{TAV_BASE_URL}/api/v1/workflows/{SLA_PREBREACH_WORKFLOW}/execute"
+    url = f"{TAV_BASE_URL}/api/v1/workflows/{SLA_PREBREACH_WORKFLOW_EMAIL}/execute"
     body = {"trigger_data": ticket_payload}
     async with httpx.AsyncClient(timeout=10) as client:
         r = await client.post(url, json=body)

@@ -503,9 +503,15 @@ class EmailListenerNode(Node):
                 break
         return main_message
 
-    def _matches_filters(self, sender: str, subject: str) -> bool:
-        from_filter = (self.config.get("from_filter") or "").strip().lower()
-        subj_filter = (self.config.get("subject_contains") or "").strip().lower()
+    def _matches_filters(self, input_data: NodeExecutionInput, sender: str, subject: str) -> bool:
+        from app.core.nodes.variables import resolve_config_value
+        
+        from_filter_raw = input_data.config.get("from_filter") or ""
+        from_filter = resolve_config_value(from_filter_raw, input_data.variables).strip().lower()
+        
+        subj_filter_raw = input_data.config.get("subject_contains") or ""
+        subj_filter = resolve_config_value(subj_filter_raw, input_data.variables).strip().lower()
+        
         if from_filter and from_filter not in (sender or "").lower():
             return False
         if subj_filter and subj_filter not in (subject or "").lower():
@@ -549,10 +555,15 @@ class EmailListenerNode(Node):
             logging.INFO,
             f"[EmailListener] Activation(UTC)={activation_time.isoformat()} imap={host}:{port} folder='{folder}' search_mode={search_mode} polling={polling_interval}s timeout={timeout_seconds}s",
         )
-        if self.config.get("from_filter") or self.config.get("subject_contains"):
+        from app.core.nodes.variables import resolve_config_value
+        
+        from_filter_resolved = resolve_config_value(input_data.config.get("from_filter") or "", input_data.variables)
+        subj_filter_resolved = resolve_config_value(input_data.config.get("subject_contains") or "", input_data.variables)
+        
+        if from_filter_resolved or subj_filter_resolved:
             self._log(
                 logging.INFO,
-                f"[EmailListener] Filters from_contains='{self.config.get('from_filter') or ''}' subject_contains='{self.config.get('subject_contains') or ''}'",
+                f"[EmailListener] Filters from_contains='{from_filter_resolved or ''}' subject_contains='{subj_filter_resolved or ''}'",
             )
         self._log(
             logging.INFO,
@@ -647,7 +658,7 @@ class EmailListenerNode(Node):
                                 )
                             continue
 
-                    if not self._matches_filters(sender=sender, subject=subject):
+                    if not self._matches_filters(input_data, sender=sender, subject=subject):
                         continue
 
                     bodies = self._extract_bodies(msg)

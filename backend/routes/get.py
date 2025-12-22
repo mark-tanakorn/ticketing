@@ -82,6 +82,7 @@ async def get_tickets():
                         "approver_phone": approver_phone,
                         "fixer": ticket["fixer"],
                         "fixer_phone": fixer_phone,
+                        "fixer_email": fixer_email,
                         "attachment_upload": ticket["attachment_upload"],
                     }
                     await trigger_sla_prebreached_workflow(sla_prebreached_payload)
