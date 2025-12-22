@@ -24,6 +24,13 @@ const navLinks = [
       </svg>
     )
   },
+  {
+    name: "Builder",
+    href: "/builder",
+    icon: (
+      <i className="fa-solid fa-hammer" style={{ fontSize: 18 }} aria-hidden="true" />
+    )
+  },
   { 
     name: "Settings", 
     href: "/settings-page",

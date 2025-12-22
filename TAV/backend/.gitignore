@@ -43,6 +43,8 @@ env/
 .coverage
 htmlcov/
 .tox/
+backend/app/core/nodes/custom/
+
 
 # Logs
 *.log

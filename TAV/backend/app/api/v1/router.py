@@ -21,6 +21,7 @@ from app.api.v1.endpoints import (
     huggingface,
     sso,
     dev_tools,
+    custom_nodes,
 
 )
 
@@ -44,4 +45,5 @@ api_router.include_router(credentials.router, prefix="/credentials")
 api_router.include_router(huggingface.router, prefix="/huggingface")
 api_router.include_router(sso.router)
 api_router.include_router(dev_tools.router)
+api_router.include_router(custom_nodes.router, prefix="/custom-nodes")
 

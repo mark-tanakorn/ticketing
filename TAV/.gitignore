@@ -73,9 +73,13 @@ yarn-error.log*
 dist/
 build/
 
+# Ignore everything inside backend/app/core/nodes/custom
+backend/app/core/nodes/custom/
+
 # Misc
 .cache/
 tmp/
 old/
 
 *.db
+

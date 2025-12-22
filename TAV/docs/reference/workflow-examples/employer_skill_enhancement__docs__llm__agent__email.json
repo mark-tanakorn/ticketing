@@ -1,0 +1,332 @@
+{
+  "id": "example_employer_skill_enhancement",
+  "name": "Employer Skill Enhancement (Docs → LLM → Agent Search → Email Approval)",
+  "description": "Example: merge transcripts, extract skill analysis via LLM, run an agent with Search tool to find courses, compose an email, and gate sending via Email Approval. Includes canvas_objects (groups + text labels).",
+  "nodes": [
+    {
+      "node_id": "n_transcript_upload_1",
+      "node_type": "document_upload",
+      "name": "Document Upload (Transcript 1)",
+      "category": "input",
+      "position": { "x": 58.7, "y": 125.6 },
+      "input_ports": [],
+      "output_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true }
+      ],
+      "config": { "file_id": "FILE_ID_TRANSCRIPT_1" },
+      "status": "idle",
+      "icon": "fa-solid fa-file-pdf",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_transcript_upload_2",
+      "node_type": "document_upload",
+      "name": "Document Upload (Transcript 2)",
+      "category": "input",
+      "position": { "x": 68.6, "y": 580.6 },
+      "input_ports": [],
+      "output_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true }
+      ],
+      "config": { "file_id": "FILE_ID_TRANSCRIPT_2" },
+      "status": "idle",
+      "icon": "fa-solid fa-file-pdf",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_document_merger",
+      "node_type": "document_merger",
+      "name": "Document Merger",
+      "category": "processing",
+      "position": { "x": 411.5, "y": 307.9 },
+      "input_ports": [
+        { "name": "document1", "type": "universal", "display_name": "Document 1 (Primary)", "description": "", "required": true },
+        { "name": "document2", "type": "universal", "display_name": "Document 2", "description": "", "required": false },
+        { "name": "document3", "type": "universal", "display_name": "Document 3", "description": "", "required": false },
+        { "name": "document4", "type": "universal", "display_name": "Document 4", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "merged_document", "type": "universal", "display_name": "Merged Document", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-file-zipper",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_document_loader",
+      "node_type": "document_loader",
+      "name": "Document Loader",
+      "category": "processing",
+      "position": { "x": 804.8, "y": 323.1 },
+      "input_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "text", "type": "universal", "display_name": "Text Content", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": { "extract_pages": "all", "chunk_text": false, "chunk_size": 1000, "chunk_overlap": 200, "annotations": null, "file_password": "" },
+      "status": "idle",
+      "icon": "fa-solid fa-file-lines",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_llm_skill_analysis",
+      "node_type": "large_language_model",
+      "name": "Large Language Model (Skill Analysis)",
+      "category": "ai",
+      "position": { "x": 1092.9, "y": 164.4 },
+      "input_ports": [
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "text", "display_name": "Response", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "anthropic",
+        "llm_model": "LLM_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Analyze transcripts; return JSON array of students with strong_skills/weak_skills.",
+        "user_prompt": "Analyze transcript text in context and produce a JSON array with one object per student (employee_id, role, gpa, experience_level, strong_skills, weak_skills, summaries)."
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-brain",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_search_tool_1",
+      "node_type": "search",
+      "name": "Search (Trends)",
+      "category": "actions",
+      "position": { "x": 1212.0, "y": 616.0 },
+      "input_ports": [
+        { "name": "input", "type": "universal", "display_name": "Input", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "output", "type": "universal", "display_name": "Search Results", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-magnifying-glass",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_ai_agent_trends",
+      "node_type": "ai_agent",
+      "name": "AI Agent (Job Trends)",
+      "category": "ai",
+      "position": { "x": 1427.4, "y": 406.4 },
+      "input_ports": [
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false },
+        { "name": "tools", "type": "tools", "display_name": "Tools", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "text", "display_name": "Result", "description": "", "required": true },
+        { "name": "steps", "type": "universal", "display_name": "Execution Steps", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "openai",
+        "llm_model": "LLM_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "General research agent.",
+        "user_prompt": "Research job market trends in 2025 across diverse sectors. Provide a concise summary.",
+        "max_iterations": 3
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-robot",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_search_tool_2",
+      "node_type": "search",
+      "name": "Search (Courses)",
+      "category": "actions",
+      "position": { "x": 1501.6, "y": 622.6 },
+      "input_ports": [
+        { "name": "input", "type": "universal", "display_name": "Input", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "output", "type": "universal", "display_name": "Search Results", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-magnifying-glass",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_ai_agent_courses",
+      "node_type": "ai_agent",
+      "name": "AI Agent (Course Recommendations)",
+      "category": "ai",
+      "position": { "x": 1737.9, "y": 411.8 },
+      "input_ports": [
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false },
+        { "name": "tools", "type": "tools", "display_name": "Tools", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "text", "display_name": "Result", "description": "", "required": true },
+        { "name": "steps", "type": "universal", "display_name": "Execution Steps", "description": "", "required": true },
+        { "name": "tool_results", "type": "universal", "display_name": "Tool Results", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "openai",
+        "llm_model": "LLM_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Tool-using assistant.",
+        "user_prompt": "Given the weak_skills in {{large_language_model.response}}, search for courses that address those exact skills. Return course titles + URLs.",
+        "max_iterations": 3
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-robot",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_json_parser_analysis",
+      "node_type": "json_parser",
+      "name": "JSON Parser",
+      "category": "processing",
+      "position": { "x": 1376.2, "y": 70.5 },
+      "input_ports": [
+        { "name": "text", "type": "text", "display_name": "JSON Text", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "data", "type": "universal", "display_name": "Parsed Data", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-code",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_csv_writer_record",
+      "node_type": "csv_writer",
+      "name": "CSV Writer (Record)",
+      "category": "export",
+      "position": { "x": 1701.2, "y": 59.1 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Data to Export", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Export Result", "description": "", "required": true },
+        { "name": "file", "type": "universal", "display_name": "File (MediaFormat)", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-file-csv",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_email_composer",
+      "node_type": "email_composer",
+      "name": "Email Composer",
+      "category": "communication",
+      "position": { "x": 2186.1, "y": 393.4 },
+      "input_ports": [
+        { "name": "content", "type": "universal", "display_name": "Content", "description": "", "required": false },
+        { "name": "attachments", "type": "universal", "display_name": "Attachments", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "draft", "type": "universal", "display_name": "Email Draft", "description": "", "required": true },
+        { "name": "result", "type": "universal", "display_name": "Send Result", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "anthropic",
+        "llm_model": "LLM_MODEL",
+        "llm_temperature": 0,
+        "composition_mode": "ai_draft",
+        "review_required": true,
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "provider": "gmail",
+        "from_email": "",
+        "password": "",
+        "from_name": "",
+        "custom_smtp_server": "",
+        "custom_smtp_port": 587,
+        "ai_prompt": "Draft a professional email with (1) 2025 trends, (2) per-student course recommendations, and (3) next steps.",
+        "recipient": "",
+        "subject": "",
+        "body": "",
+        "cc": "",
+        "bcc": "",
+        "reply_to": ""
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-envelope-open-text",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_email_approval",
+      "node_type": "email_approval",
+      "name": "Email Approval",
+      "category": "communication",
+      "position": { "x": 2497.3, "y": 404.7 },
+      "input_ports": [
+        { "name": "draft", "type": "universal", "display_name": "Email Draft", "description": "", "required": true },
+        { "name": "smtp_config", "type": "universal", "display_name": "SMTP Configuration", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Approval Result", "description": "", "required": true },
+        { "name": "final_draft", "type": "universal", "display_name": "Final Draft", "description": "", "required": true }
+      ],
+      "config": {
+        "timeout_hours": 6,
+        "base_url": "",
+        "auto_send": true,
+        "send_notification": true,
+        "notification_email": "approver@example.com",
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "provider": "gmail",
+        "from_email": "",
+        "password": "",
+        "from_name": "",
+        "custom_smtp_server": "",
+        "custom_smtp_port": 587
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-user-check",
+      "share_output_to_variables": false,
+      "flipped": false
+    }
+  ],
+  "connections": [
+    { "connection_id": "c_upload1_to_merge", "source_node_id": "n_transcript_upload_1", "source_port": "file", "target_node_id": "n_document_merger", "target_port": "document1" },
+    { "connection_id": "c_upload2_to_merge", "source_node_id": "n_transcript_upload_2", "source_port": "file", "target_node_id": "n_document_merger", "target_port": "document3" },
+    { "connection_id": "c_merge_to_loader", "source_node_id": "n_document_merger", "source_port": "merged_document", "target_node_id": "n_document_loader", "target_port": "file" },
+    { "connection_id": "c_loader_to_llm", "source_node_id": "n_document_loader", "source_port": "text", "target_node_id": "n_llm_skill_analysis", "target_port": "context" },
+    { "connection_id": "c_llm_to_json_parser", "source_node_id": "n_llm_skill_analysis", "source_port": "response", "target_node_id": "n_json_parser_analysis", "target_port": "text" },
+    { "connection_id": "c_json_to_csv", "source_node_id": "n_json_parser_analysis", "source_port": "data", "target_node_id": "n_csv_writer_record", "target_port": "data" },
+    { "connection_id": "c_llm_to_agent_courses", "source_node_id": "n_llm_skill_analysis", "source_port": "response", "target_node_id": "n_ai_agent_courses", "target_port": "context" },
+    { "connection_id": "c_search2_to_agent_courses_tools", "source_node_id": "n_search_tool_2", "source_port": "output", "target_node_id": "n_ai_agent_courses", "target_port": "tools" },
+    { "connection_id": "c_llm_to_agent_trends", "source_node_id": "n_llm_skill_analysis", "source_port": "response", "target_node_id": "n_ai_agent_trends", "target_port": "context" },
+    { "connection_id": "c_search1_to_agent_trends_tools", "source_node_id": "n_search_tool_1", "source_port": "output", "target_node_id": "n_ai_agent_trends", "target_port": "tools" },
+    { "connection_id": "c_csv_to_email_attachments", "source_node_id": "n_csv_writer_record", "source_port": "file", "target_node_id": "n_email_composer", "target_port": "attachments" },
+    { "connection_id": "c_agent_courses_to_email_content", "source_node_id": "n_ai_agent_courses", "source_port": "result", "target_node_id": "n_email_composer", "target_port": "content" },
+    { "connection_id": "c_email_draft_to_approval", "source_node_id": "n_email_composer", "source_port": "draft", "target_node_id": "n_email_approval", "target_port": "draft" }
+  ],
+  "canvas_objects": [
+    { "id": "co_text_trends", "type": "text", "position": { "x": 1445.0, "y": 362.0 }, "content": "Search for job trends", "fontSize": 16, "color": "#374151", "zIndex": 0 },
+    { "id": "co_text_courses", "type": "text", "position": { "x": 1730.7, "y": 360.6 }, "content": "Search for courses", "fontSize": 16, "color": "#374151", "zIndex": 0 },
+    { "id": "co_group_transcripts", "type": "group", "position": { "x": 17.7, "y": 41.1 }, "size": { "width": 1024.7, "height": 730.4 }, "color": "#fef3c7", "title": "Transcript processing", "zIndex": -1 },
+    { "id": "co_group_processing", "type": "group", "position": { "x": 1199.8, "y": 323.8 }, "size": { "width": 890.4, "height": 434.9 }, "color": "#ffd814", "title": "Processing box", "zIndex": -1 }
+  ]
+}
+
+

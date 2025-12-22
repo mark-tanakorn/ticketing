@@ -1,0 +1,458 @@
+{
+  "id": "example_ticketing_backend",
+  "name": "Ticketing Backend (WhatsApp + HTTP)",
+  "description": "Example: send ticket details to an approver via WhatsApp, listen for reply, branch on approval, notify fixer, and update ticket status via HTTP endpoints.",
+  "nodes": [
+    {
+      "node_id": "n_whatsapp_send_approver",
+      "node_type": "whatsapp_send",
+      "name": "WhatsApp Send (Approver)",
+      "category": "communication",
+      "position": { "x": 135.3, "y": 112.1 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "message_content", "type": "universal", "display_name": "Message Content", "description": "", "required": false },
+        { "name": "media_url", "type": "universal", "display_name": "Media URL", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Send Result", "description": "", "required": true },
+        { "name": "message_sid", "type": "text", "display_name": "Message SID", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{trigger.approver_phone}}",
+        "message_mode": "custom",
+        "message_body": "Hello {{trigger.approver}},\n\nA ticket was submitted.\n\nTicket ID: {{trigger.ticket_id}}\nTitle: {{trigger.title}}\nSeverity: {{trigger.severity}}\nDescription: {{trigger.description}}\nFixer: {{trigger.fixer}} ({{trigger.fixer_phone}})\n\nReply with Yes to approve assignment, or No,<remark> to reject.",
+        "content_sid": "",
+        "content_variables": "",
+        "include_media": false,
+        "media_url": ""
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_listener_approver_reply",
+      "node_type": "whatsapp_listener",
+      "name": "WhatsApp Listener (Approver Reply)",
+      "category": "communication",
+      "position": { "x": 430.3, "y": 114.1 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "message_body", "type": "text", "display_name": "Message Text", "description": "", "required": true },
+        { "name": "media", "type": "universal", "display_name": "Media Files", "description": "", "required": true },
+        { "name": "message_metadata", "type": "universal", "display_name": "Message Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{trigger.approver_phone}}",
+        "polling_interval": 2,
+        "timeout_seconds": 300,
+        "listen_mode": "new_only",
+        "since_minutes": 5,
+        "download_media": true
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_decision_approval",
+      "node_type": "decision",
+      "name": "Decision (Approved?)",
+      "category": "workflow",
+      "position": { "x": 771.3, "y": 148.1 },
+      "input_ports": [
+        { "name": "input", "type": "universal", "display_name": "Input", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "true", "type": "signal", "display_name": "True", "description": "", "required": true },
+        { "name": "false", "type": "signal", "display_name": "False", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "local",
+        "llm_model": "LOCAL_MODEL",
+        "llm_temperature": 0,
+        "condition": "If the approver says Yes",
+        "evaluation_mode": "intelligent",
+        "include_reasoning": true
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-code-branch",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_send_fixer",
+      "node_type": "whatsapp_send",
+      "name": "WhatsApp Send (Fixer)",
+      "category": "communication",
+      "position": { "x": 1113.1, "y": 43.2 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "message_content", "type": "universal", "display_name": "Message Content", "description": "", "required": false },
+        { "name": "media_url", "type": "universal", "display_name": "Media URL", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Send Result", "description": "", "required": true },
+        { "name": "message_sid", "type": "text", "display_name": "Message SID", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{trigger.fixer_phone}}",
+        "message_mode": "custom",
+        "message_body": "Hi {{trigger.fixer}}, please work on the ticket.\n\nTicket ID: {{trigger.ticket_id}}\nTitle: {{trigger.title}}\nSeverity: {{trigger.severity}}\nDescription: {{trigger.description}}\n\nReply with \"I'm working on it\" once you start.",
+        "content_sid": "",
+        "content_variables": "",
+        "include_media": false,
+        "media_url": ""
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_http_approval_reject",
+      "node_type": "http_request",
+      "name": "HTTP Request (Reject Ticket)",
+      "category": "actions",
+      "position": { "x": 1081.5, "y": 456.8 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Request Data", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "universal", "display_name": "Response", "description": "", "required": true },
+        { "name": "status_code", "type": "universal", "display_name": "Status Code", "description": "", "required": true },
+        { "name": "headers", "type": "universal", "display_name": "Headers", "description": "", "required": true },
+        { "name": "success", "type": "universal", "display_name": "Success", "description": "", "required": true }
+      ],
+      "config": {
+        "url": "https://api.example.com/tickets/{{trigger.ticket_id}}/approval",
+        "method": "POST",
+        "auth_type": "none",
+        "credential_id": null,
+        "auth_username": "",
+        "auth_password": "",
+        "auth_token": "",
+        "api_key_name": "X-API-Key",
+        "headers": null,
+        "query_params": null,
+        "body_type": "json",
+        "body": "{\"approved\": false, \"reply_text\": \"{{whatsapp_listener.message_body}}\"}",
+        "timeout": 30,
+        "follow_redirects": true,
+        "verify_ssl": true
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-globe",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_http_approval_accept",
+      "node_type": "http_request",
+      "name": "HTTP Request (Approve Ticket)",
+      "category": "actions",
+      "position": { "x": 1110.5, "y": 198.6 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Request Data", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "universal", "display_name": "Response", "description": "", "required": true },
+        { "name": "status_code", "type": "universal", "display_name": "Status Code", "description": "", "required": true },
+        { "name": "headers", "type": "universal", "display_name": "Headers", "description": "", "required": true },
+        { "name": "success", "type": "universal", "display_name": "Success", "description": "", "required": true }
+      ],
+      "config": {
+        "url": "https://api.example.com/tickets/{{trigger.ticket_id}}/approval",
+        "method": "POST",
+        "auth_type": "none",
+        "credential_id": null,
+        "auth_username": "",
+        "auth_password": "",
+        "auth_token": "",
+        "api_key_name": "X-API-Key",
+        "headers": null,
+        "query_params": null,
+        "body_type": "json",
+        "body": "{\"approved\": true, \"reply_text\": \"{{whatsapp_listener.message_body}}\"}",
+        "timeout": 30,
+        "follow_redirects": true,
+        "verify_ssl": true
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-globe",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_listener_fixer_start",
+      "node_type": "whatsapp_listener",
+      "name": "WhatsApp Listener (Fixer Start)",
+      "category": "communication",
+      "position": { "x": 1548.4, "y": 95.0 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "message_body", "type": "text", "display_name": "Message Text", "description": "", "required": true },
+        { "name": "media", "type": "universal", "display_name": "Media Files", "description": "", "required": true },
+        { "name": "message_metadata", "type": "universal", "display_name": "Message Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{trigger.fixer_phone}}",
+        "polling_interval": 2,
+        "timeout_seconds": 300,
+        "listen_mode": "new_only",
+        "since_minutes": 5,
+        "download_media": true
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_http_set_in_progress",
+      "node_type": "http_request",
+      "name": "HTTP Request (Set In Progress)",
+      "category": "actions",
+      "position": { "x": 1864.7, "y": 98.0 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Request Data", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "universal", "display_name": "Response", "description": "", "required": true },
+        { "name": "status_code", "type": "universal", "display_name": "Status Code", "description": "", "required": true },
+        { "name": "headers", "type": "universal", "display_name": "Headers", "description": "", "required": true },
+        { "name": "success", "type": "universal", "display_name": "Success", "description": "", "required": true }
+      ],
+      "config": {
+        "url": "https://api.example.com/tickets/{{trigger.ticket_id}}/status",
+        "method": "POST",
+        "auth_type": "none",
+        "credential_id": null,
+        "auth_username": "",
+        "auth_password": "",
+        "auth_token": "",
+        "api_key_name": "X-API-Key",
+        "headers": null,
+        "query_params": null,
+        "body_type": "json",
+        "body": "{ \"status\": \"in_progress\" }",
+        "timeout": 30,
+        "follow_redirects": true,
+        "verify_ssl": true
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-globe",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_send_done_prompt",
+      "node_type": "whatsapp_send",
+      "name": "WhatsApp Send (Ask for Done)",
+      "category": "communication",
+      "position": { "x": 1869.1, "y": 308.2 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "message_content", "type": "universal", "display_name": "Message Content", "description": "", "required": false },
+        { "name": "media_url", "type": "universal", "display_name": "Media URL", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Send Result", "description": "", "required": true },
+        { "name": "message_sid", "type": "text", "display_name": "Message SID", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{trigger.fixer_phone}}",
+        "message_mode": "custom",
+        "message_body": "Please reply with \"Done\" once you finished fixing the issue.",
+        "content_sid": "",
+        "content_variables": "",
+        "include_media": false,
+        "media_url": ""
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_listener_done_reply",
+      "node_type": "whatsapp_listener",
+      "name": "WhatsApp Listener (Done Reply)",
+      "category": "communication",
+      "position": { "x": 2174.0, "y": 300.8 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "message_body", "type": "text", "display_name": "Message Text", "description": "", "required": true },
+        { "name": "media", "type": "universal", "display_name": "Media Files", "description": "", "required": true },
+        { "name": "message_metadata", "type": "universal", "display_name": "Message Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{trigger.fixer_phone}}",
+        "polling_interval": 2,
+        "timeout_seconds": 7200,
+        "listen_mode": "new_only",
+        "since_minutes": 5,
+        "download_media": true
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": true,
+      "variable_name": "Fixer_reply",
+      "flipped": false
+    },
+    {
+      "node_id": "n_http_set_closed",
+      "node_type": "http_request",
+      "name": "HTTP Request (Set Closed)",
+      "category": "actions",
+      "position": { "x": 2693.9, "y": 251.1 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Request Data", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "universal", "display_name": "Response", "description": "", "required": true },
+        { "name": "status_code", "type": "universal", "display_name": "Status Code", "description": "", "required": true },
+        { "name": "headers", "type": "universal", "display_name": "Headers", "description": "", "required": true },
+        { "name": "success", "type": "universal", "display_name": "Success", "description": "", "required": true }
+      ],
+      "config": {
+        "url": "https://api.example.com/tickets/{{trigger.ticket_id}}/status",
+        "method": "POST",
+        "auth_type": "none",
+        "credential_id": null,
+        "auth_username": "",
+        "auth_password": "",
+        "auth_token": "",
+        "api_key_name": "X-API-Key",
+        "headers": null,
+        "query_params": null,
+        "body_type": "json",
+        "body": "{ \"status\": \"closed\" }",
+        "timeout": 30,
+        "follow_redirects": true,
+        "verify_ssl": true
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-globe",
+      "share_output_to_variables": false,
+      "flipped": false
+    }
+  ],
+  "connections": [
+    {
+      "connection_id": "c_send_to_listen_approver",
+      "source_node_id": "n_whatsapp_send_approver",
+      "source_port": "result",
+      "target_node_id": "n_whatsapp_listener_approver_reply",
+      "target_port": "trigger"
+    },
+    {
+      "connection_id": "c_approver_reply_to_decision",
+      "source_node_id": "n_whatsapp_listener_approver_reply",
+      "source_port": "message_body",
+      "target_node_id": "n_decision_approval",
+      "target_port": "input"
+    },
+    {
+      "connection_id": "c_decision_true_to_send_fixer",
+      "source_node_id": "n_decision_approval",
+      "source_port": "true",
+      "target_node_id": "n_whatsapp_send_fixer",
+      "target_port": "trigger"
+    },
+    {
+      "connection_id": "c_decision_true_to_http_approve",
+      "source_node_id": "n_decision_approval",
+      "source_port": "true",
+      "target_node_id": "n_http_approval_accept",
+      "target_port": "data"
+    },
+    {
+      "connection_id": "c_decision_false_to_http_reject",
+      "source_node_id": "n_decision_approval",
+      "source_port": "false",
+      "target_node_id": "n_http_approval_reject",
+      "target_port": "data"
+    },
+    {
+      "connection_id": "c_send_fixer_to_listen_start",
+      "source_node_id": "n_whatsapp_send_fixer",
+      "source_port": "result",
+      "target_node_id": "n_whatsapp_listener_fixer_start",
+      "target_port": "trigger"
+    },
+    {
+      "connection_id": "c_fixer_start_to_http_in_progress",
+      "source_node_id": "n_whatsapp_listener_fixer_start",
+      "source_port": "message_body",
+      "target_node_id": "n_http_set_in_progress",
+      "target_port": "data"
+    },
+    {
+      "connection_id": "c_fixer_start_to_send_done_prompt",
+      "source_node_id": "n_whatsapp_listener_fixer_start",
+      "source_port": "message_body",
+      "target_node_id": "n_whatsapp_send_done_prompt",
+      "target_port": "trigger"
+    },
+    {
+      "connection_id": "c_done_prompt_to_listen_done",
+      "source_node_id": "n_whatsapp_send_done_prompt",
+      "source_port": "result",
+      "target_node_id": "n_whatsapp_listener_done_reply",
+      "target_port": "trigger"
+    },
+    {
+      "connection_id": "c_done_reply_to_http_closed",
+      "source_node_id": "n_whatsapp_listener_done_reply",
+      "source_port": "message_body",
+      "target_node_id": "n_http_set_closed",
+      "target_port": "data"
+    }
+  ],
+  "canvas_objects": []
+}
+
+

@@ -540,6 +540,35 @@ export default function AIProvidersSection() {
                 </p>
               </div>
 
+              {/* Max Tokens (per provider) */}
+              <div>
+                <label className="text-sm font-medium block mb-2" style={{ color: 'var(--theme-text)' }}>
+                  Max Tokens (per provider)
+                </label>
+                <input
+                  type="number"
+                  min={128}
+                  max={200000}
+                  value={formData.max_tokens ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value === '' ? undefined : parseInt(e.target.value);
+                    setFormData(prev => ({ ...prev, max_tokens: v }));
+                  }}
+                  placeholder="Leave empty to use Default Max Tokens"
+                  className="w-full border rounded-lg px-4 py-2 focus:outline-none"
+                  style={{
+                    background: 'var(--theme-surface-variant)',
+                    borderColor: 'var(--theme-border)',
+                    color: 'var(--theme-text)',
+                  }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = 'var(--theme-primary)'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = 'var(--theme-border)'}
+                />
+                <p className="text-xs mt-1" style={{ color: 'var(--theme-text-muted)' }}>
+                  If set, this overrides the global “Default Max Tokens”. If empty, global default is used.
+                </p>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex gap-3 pt-2">
                 <button 

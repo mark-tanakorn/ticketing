@@ -1,0 +1,164 @@
+{
+  "id": "example_csv_structure_data",
+  "name": "CSV Structure Data (Excel → LLM → CSV)",
+  "description": "Example: read an Excel sheet, use an LLM to convert unstructured address text into structured JSON, parse it, then write CSV.",
+  "nodes": [
+    {
+      "node_id": "n_document_upload_input",
+      "node_type": "document_upload",
+      "name": "Document Upload",
+      "category": "input",
+      "position": { "x": 40.4, "y": 216.7 },
+      "input_ports": [],
+      "output_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true }
+      ],
+      "config": { "file_id": "FILE_ID_EXCEL_INPUT" },
+      "status": "idle",
+      "icon": "fa-solid fa-file-pdf",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_excel_reader",
+      "node_type": "excel_reader",
+      "name": "Excel Reader",
+      "category": "processing",
+      "position": { "x": 381.2, "y": 197.4 },
+      "input_ports": [
+        { "name": "file", "type": "universal", "display_name": "Excel File", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "data", "type": "universal", "display_name": "Parsed Data", "description": "", "required": true },
+        { "name": "headers", "type": "universal", "display_name": "Headers", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "sheet_name": "",
+        "has_header": true,
+        "skip_rows": 0,
+        "columns_to_extract": "",
+        "file_password": ""
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-file-excel",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_llm_structure_address",
+      "node_type": "large_language_model",
+      "name": "Large Language Model",
+      "category": "ai",
+      "position": { "x": 683, "y": 203 },
+      "input_ports": [
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "text", "display_name": "Response", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "local",
+        "llm_model": "LOCAL_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Return JSON only.",
+        "user_prompt": "Parse unstructured address rows in {{excel_reader.data}} into a structured JSON object with fixed keys (street, building, postal_code, city, country, etc.). Output JSON only."
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-brain",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_json_parser",
+      "node_type": "json_parser",
+      "name": "JSON Parser",
+      "category": "processing",
+      "position": { "x": 1006, "y": 212 },
+      "input_ports": [
+        { "name": "text", "type": "text", "display_name": "JSON Text", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "data", "type": "universal", "display_name": "Parsed Data", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-code",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_csv_writer",
+      "node_type": "csv_writer",
+      "name": "CSV Writer",
+      "category": "export",
+      "position": { "x": 1314, "y": 204 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Data to Export", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Export Result", "description": "", "required": true },
+        { "name": "file", "type": "universal", "display_name": "File (MediaFormat)", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-file-csv",
+      "share_output_to_variables": false,
+      "flipped": false
+    }
+  ],
+  "connections": [
+    {
+      "connection_id": "c_upload_to_excel_reader",
+      "source_node_id": "n_document_upload_input",
+      "source_port": "file",
+      "target_node_id": "n_excel_reader",
+      "target_port": "file"
+    },
+    {
+      "connection_id": "c_excel_to_llm_context",
+      "source_node_id": "n_excel_reader",
+      "source_port": "data",
+      "target_node_id": "n_llm_structure_address",
+      "target_port": "context"
+    },
+    {
+      "connection_id": "c_llm_to_json_parser",
+      "source_node_id": "n_llm_structure_address",
+      "source_port": "response",
+      "target_node_id": "n_json_parser",
+      "target_port": "text"
+    },
+    {
+      "connection_id": "c_json_to_csv",
+      "source_node_id": "n_json_parser",
+      "source_port": "data",
+      "target_node_id": "n_csv_writer",
+      "target_port": "data"
+    }
+  ],
+  "canvas_objects": [
+    {
+      "id": "co_group_llm",
+      "type": "group",
+      "position": { "x": 16, "y": 95.7 },
+      "size": { "width": 924, "height": 412 },
+      "color": "#fef3c7",
+      "title": "LLM read document",
+      "zIndex": -1
+    },
+    {
+      "id": "co_text_result",
+      "type": "text",
+      "position": { "x": 1328.3, "y": 144.7 },
+      "content": "Final result CSV",
+      "fontSize": 16,
+      "color": "#374151",
+      "zIndex": 0
+    }
+  ]
+}
+
+

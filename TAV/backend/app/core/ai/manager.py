@@ -12,7 +12,7 @@ This manager:
 """
 
 import logging
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List, Union, AsyncIterator
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -477,6 +477,81 @@ class LangChainManager:
                     raise fallback_error
             else:
                 raise e
+
+    async def call_llm_stream(
+        self,
+        prompt: str,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        fallback: bool = True,
+        timeout: Optional[int] = None,
+        **kwargs
+    ) -> AsyncIterator[str]:
+        """
+        Stream LLM output token-by-token with optional fallback.
+
+        Yields plain text chunks (tokens) as they arrive from the provider.
+        """
+        from langchain.schema import HumanMessage
+
+        settings = self._load_settings()
+        provider = provider or settings.default_provider
+
+        async def _stream_once(selected_provider: str) -> AsyncIterator[str]:
+            llm = self.get_llm(
+                selected_provider,
+                model,
+                temperature,
+                max_tokens,
+                streaming=True,
+                timeout=timeout,
+                **kwargs,
+            )
+
+            # Most LangChain chat models stream via astream(messages) and yield message chunks.
+            # Some LLMs may accept a plain string; we try string first for compatibility, then messages.
+            try:
+                stream_iter = llm.astream(prompt)
+            except Exception:
+                stream_iter = llm.astream([HumanMessage(content=prompt)])
+
+            async for chunk in stream_iter:
+                # Normalize chunk into a text token.
+                if chunk is None:
+                    continue
+                if isinstance(chunk, str):
+                    token = chunk
+                else:
+                    token = getattr(chunk, "content", None)
+                    if token is None:
+                        token = str(chunk)
+                if token:
+                    yield token
+
+        # Try primary provider first; if it fails before yielding anything, optionally try fallback.
+        yielded_any = False
+        try:
+            async for token in _stream_once(provider):
+                yielded_any = True
+                yield token
+            logger.info(f"✅ LLM stream succeeded: {provider}")
+            return
+        except Exception as e:
+            logger.error(f"❌ LLM stream failed ({provider}): {e}")
+            if (
+                fallback
+                and not yielded_any
+                and settings.fallback_provider
+                and settings.fallback_provider != provider
+            ):
+                logger.info(f"🔄 Trying fallback stream: {settings.fallback_provider}")
+                async for token in _stream_once(settings.fallback_provider):
+                    yield token
+                logger.info(f"✅ Fallback stream succeeded: {settings.fallback_provider}")
+                return
+            raise
     
     async def call_llm_with_messages(
         self,
@@ -576,6 +651,89 @@ class LangChainManager:
                     raise fallback_error
             else:
                 raise e
+
+    async def call_llm_stream_with_messages(
+        self,
+        messages: List[Dict[str, Any]],
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        timeout: Optional[int] = None,
+        fallback: bool = True,
+        **kwargs
+    ) -> AsyncIterator[str]:
+        """
+        Stream LLM output token-by-token using chat messages format.
+
+        Supports structured content (e.g., list of {"type":"text"...} / {"type":"image_url"...})
+        for vision-capable models.
+        """
+        from langchain.schema import HumanMessage, SystemMessage, AIMessage
+
+        settings = self._load_settings()
+        provider = provider or settings.default_provider
+
+        def _to_lc_messages() -> List[Any]:
+            lc_messages: List[Any] = []
+            for msg in messages or []:
+                if not isinstance(msg, dict):
+                    continue
+                role = (msg.get("role") or "user").lower()
+                content = msg.get("content", "")
+                if role == "system":
+                    lc_messages.append(SystemMessage(content=content))
+                elif role == "assistant":
+                    lc_messages.append(AIMessage(content=content))
+                else:
+                    lc_messages.append(HumanMessage(content=content))
+            return lc_messages
+
+        async def _stream_once(selected_provider: str) -> AsyncIterator[str]:
+            llm = self.get_llm(
+                selected_provider,
+                model,
+                temperature,
+                max_tokens,
+                streaming=True,
+                timeout=timeout,
+                **kwargs,
+            )
+            lc_messages = _to_lc_messages()
+            stream_iter = llm.astream(lc_messages)
+            async for chunk in stream_iter:
+                if chunk is None:
+                    continue
+                if isinstance(chunk, str):
+                    token = chunk
+                else:
+                    token = getattr(chunk, "content", None)
+                    if token is None:
+                        token = str(chunk)
+                if token:
+                    yield token
+
+        yielded_any = False
+        try:
+            async for token in _stream_once(provider):
+                yielded_any = True
+                yield token
+            logger.info(f"✅ LLM stream (messages) succeeded: {provider}")
+            return
+        except Exception as e:
+            logger.error(f"❌ LLM stream (messages) failed ({provider}): {e}")
+            if (
+                fallback
+                and not yielded_any
+                and settings.fallback_provider
+                and settings.fallback_provider != provider
+            ):
+                logger.info(f"🔄 Trying fallback stream (messages): {settings.fallback_provider}")
+                async for token in _stream_once(settings.fallback_provider):
+                    yield token
+                logger.info(f"✅ Fallback stream (messages) succeeded: {settings.fallback_provider}")
+                return
+            raise
     
     def get_embeddings(
         self,

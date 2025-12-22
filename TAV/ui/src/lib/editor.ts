@@ -42,6 +42,60 @@ export async function updateWorkflow(id: string, workflow: any): Promise<any> {
   });
 }
 
+// ===== WORKFLOW SETTINGS (sharing / visibility) =====
+
+export type WorkflowVisibility = 'private' | 'link' | 'public';
+
+export interface WorkflowSettingsUpdateRequest {
+  visibility?: WorkflowVisibility;
+  workflow_settings?: any;
+}
+
+export interface SharedWorkflowPreview {
+  share_id: string;
+  workflow_id: string;
+  name: string;
+  description?: string;
+  tags?: string[];
+  visibility: WorkflowVisibility | string;
+  share_mode?: 'fork' | 'open' | 'choose' | string;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ForkWorkflowResponse {
+  workflow_id: string;
+}
+
+/**
+ * Update workflow-level settings (visibility/sharing).
+ */
+export async function updateWorkflowSettings(
+  id: string,
+  settings: WorkflowSettingsUpdateRequest
+): Promise<any> {
+  return await apiFetch(`${getApiBaseUrl()}/api/v1/workflows/${id}/settings`, {
+    method: 'PATCH',
+    body: JSON.stringify(settings),
+  });
+}
+
+/**
+ * Get shared workflow preview (by share_id).
+ */
+export async function getSharedWorkflowPreview(shareId: string): Promise<SharedWorkflowPreview> {
+  return await apiFetch(`${getApiBaseUrl()}/api/v1/workflows/shared/${shareId}`);
+}
+
+/**
+ * Duplicate a shared workflow into the current user's workspace.
+ */
+export async function forkSharedWorkflow(shareId: string): Promise<ForkWorkflowResponse> {
+  return await apiFetch(`${getApiBaseUrl()}/api/v1/workflows/shared/${shareId}/fork`, {
+    method: 'POST',
+  });
+}
+
 /**
  * Delete a workflow
  */

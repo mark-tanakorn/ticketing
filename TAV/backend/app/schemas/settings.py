@@ -5,7 +5,7 @@ Pydantic models for validating application settings stored in database.
 """
 
 from typing import Dict, List, Literal, Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, AliasChoices
 
 
 # ==============================================================================
@@ -51,7 +51,7 @@ class ExecutionSettings(BaseModel):
     default_timeout: int = Field(
         default=300, 
         ge=10, 
-        le=7200,
+        le=259200,
         description="Default node timeout (seconds)"
     )
     http_timeout: int = Field(
@@ -63,7 +63,7 @@ class ExecutionSettings(BaseModel):
     workflow_timeout: int = Field(
         default=1800, 
         ge=60, 
-        le=86400,
+        le=345600,
         description="Max workflow execution time (seconds)"
     )
     
@@ -217,10 +217,17 @@ class AIProviderConfig(BaseModel):
         default_factory=list,
         description="List of available models"
     )
-    max_tokens_limit: int = Field(
-        default=4096, 
+    # NOTE:
+    # - Frontend uses `max_tokens`
+    # - Older backend settings used `max_tokens_limit`
+    # We accept either, and serialize as `max_tokens` for UI.
+    # If unset (None), LangChainManager will fall back to AISettings.default_max_tokens.
+    max_tokens_limit: Optional[int] = Field(
+        default=None,
         gt=0,
-        description="Max tokens supported"
+        description="Max output tokens for this provider (overrides global default_max_tokens if set)",
+        validation_alias=AliasChoices("max_tokens", "max_tokens_limit"),
+        serialization_alias="max_tokens",
     )
     supports_streaming: bool = Field(
         default=True,

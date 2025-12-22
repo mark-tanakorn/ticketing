@@ -200,8 +200,9 @@ export function useWorkflowExecution(
     recoverState();
   }, [workflowId]); // Run when workflowId changes
 
-  async function handleRun() {
-    if (!workflowId) {
+  async function handleRun(overrideWorkflowId?: string | null) {
+    const wfId = overrideWorkflowId || workflowId;
+    if (!wfId) {
       alert('Please save workflow first');
       return;
     }
@@ -227,7 +228,7 @@ export function useWorkflowExecution(
       setRetryWarnings([]);
       resetAllNodeStates(); // Reset all nodes before execution
 
-      const response = await executeWorkflow(workflowId);
+      const response = await executeWorkflow(wfId);
       console.log('[handleRun] Response:', response);
       
       // Check if this is a monitoring workflow (persistent mode)
@@ -236,7 +237,7 @@ export function useWorkflowExecution(
         addLog(`✅ Monitoring started (${response.trigger_count} trigger(s))`);
         setIsMonitoring(true);
         isMonitoringRef.current = true;
-        connectToWorkflowStream(workflowId);
+        connectToWorkflowStream(wfId);
       } else {
         // One-shot workflow - connect to execution-level SSE
         setExecutionId(response.execution_id);

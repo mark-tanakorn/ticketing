@@ -45,15 +45,22 @@ SECURITY - ONLY use these imports:
 - app.core.nodes.registry (register_node)
 - app.core.nodes.capabilities (LLMCapability, ExportCapability, etc.)
 - app.core.nodes.multimodal (TextFormatter, MediaFormat, etc.)
+- app.core.nodes.safe_io (safe_read_text, safe_read_bytes, safe_read_json)  # allowlisted file reads only
 - app.schemas.workflow (NodeCategory, PortType)
 - typing (Dict, Any, List, Optional)
+- dataclasses, enum
 - logging
 - json
 - datetime
 - httpx (for HTTP requests)
-- pathlib (for file paths)
+- urllib.parse (URL parsing only)
+- uuid, hashlib, hmac, base64, decimal, zoneinfo, csv, html, collections, functools, itertools, math
 
-DO NOT use: os, subprocess, eval, exec, __import__, sys
+FILESYSTEM SAFETY:
+- Do NOT use open(), pathlib.Path.read_text/read_bytes/open, or any write/delete operations.
+- If you need to read local files, ONLY use app.core.nodes.safe_io.* and ensure files live under allowlisted roots.
+
+DO NOT use: os, subprocess, eval, exec, __import__, sys, socket
 
 CODE STRUCTURE:
 ```python

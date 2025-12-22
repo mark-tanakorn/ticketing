@@ -20,7 +20,7 @@ GET /executions/{id} - Get execution details
 import logging
 import json
 import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Literal
 from uuid import UUID
 import uuid
 
@@ -139,6 +139,10 @@ class WorkflowResponse(BaseModel):
     is_active: bool
     is_template: bool
     author_id: Optional[int]
+    owner_id: int
+    visibility: str
+    share_id: Optional[str] = None
+    workflow_settings: Optional[Dict[str, Any]] = None
     created_at: str
     updated_at: str
     last_run_at: Optional[str]
@@ -158,6 +162,9 @@ class WorkflowSummary(BaseModel):
     is_active: bool
     is_template: bool
     author_id: Optional[int]
+    owner_id: int
+    visibility: str
+    share_id: Optional[str] = None
     created_at: str
     updated_at: str
     last_run_at: Optional[str]
@@ -168,6 +175,54 @@ class WorkflowSummary(BaseModel):
         default="false",
         description="Recommended X-Await-Completion header value. Hint for API consumers."
     )
+
+
+class WorkflowSettingsUpdate(BaseModel):
+    """Update workflow-level settings like sharing visibility (foundation only)."""
+    visibility: Optional[Literal["private", "link", "public"]] = Field(default=None)
+    workflow_settings: Optional[Dict[str, Any]] = Field(default=None, description="Per-workflow settings blob")
+
+
+class SharedWorkflowPreview(BaseModel):
+    """Public preview for a shared workflow (by share_id)."""
+    share_id: str
+    workflow_id: str
+    name: str
+    description: Optional[str]
+    tags: Optional[list[str]] = None
+    visibility: str
+    share_mode: Optional[str] = None  # fork|open|choose (stored in workflow_settings)
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class ForkWorkflowResponse(BaseModel):
+    """Response after duplicating a shared workflow into the user's workspace."""
+    workflow_id: str
+
+
+def _assert_owner_or_404(workflow, current_user: JWTUser):
+    """Basic permission check for local mode (owner only)."""
+    if not workflow:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found"
+        )
+    if getattr(workflow, "owner_id", None) != current_user.id:
+        # Future: allow if public/unlisted/share link ACL
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this workflow"
+        )
+
+
+def _assert_share_visible_or_404(workflow) -> None:
+    """Shared workflows must be explicitly visible (link/public)."""
+    if not workflow:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shared workflow not found")
+    if getattr(workflow, "visibility", None) not in ("link", "public"):
+        # Don't leak existence
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shared workflow not found")
 
 
 class ExecuteWorkflowRequest(BaseModel):
@@ -364,6 +419,10 @@ async def create_workflow(
             tags=workflow.tags,
             execution_config=workflow.execution_config,
             author_id=current_user.id,
+            owner_id=current_user.id,
+            visibility="private",
+            share_id=None,
+            workflow_settings=None,
             status="na",  # No executions yet
             is_active=True,
             is_template=False,
@@ -394,6 +453,10 @@ async def create_workflow(
             is_active=db_workflow.is_active,
             is_template=db_workflow.is_template,
             author_id=db_workflow.author_id,
+            owner_id=db_workflow.owner_id,
+            visibility=db_workflow.visibility or "private",
+            share_id=db_workflow.share_id,
+            workflow_settings=db_workflow.workflow_settings,
             created_at=db_workflow.created_at.isoformat(),
             updated_at=db_workflow.updated_at.isoformat(),
             last_run_at=db_workflow.last_run_at.isoformat() if db_workflow.last_run_at else None,
@@ -451,8 +514,8 @@ async def list_workflows(
     # DEBUG: Log current user info
     logger.info(f"🔍 list_workflows called by user_id={current_user.id}, username={getattr(current_user, 'user_name', 'N/A')}")
     
-    # Build query - FILTER BY CURRENT USER
-    query = db.query(Workflow).filter(Workflow.author_id == current_user.id)
+    # Build query - FILTER BY CURRENT USER (owner)
+    query = db.query(Workflow).filter(Workflow.owner_id == current_user.id)
     
     # DEBUG: Count total workflows before filtering
     total_workflows = db.query(Workflow).count()
@@ -484,6 +547,9 @@ async def list_workflows(
             is_active=wf.is_active,
             is_template=wf.is_template,
             author_id=wf.author_id,
+            owner_id=wf.owner_id,
+            visibility=wf.visibility or "private",
+            share_id=wf.share_id,
             created_at=wf.created_at.isoformat() if wf.created_at else None,
             updated_at=wf.updated_at.isoformat() if wf.updated_at else None,
             last_run_at=wf.last_run_at.isoformat() if wf.last_run_at else None,
@@ -517,12 +583,7 @@ async def get_workflow(
     from app.database.models.workflow import Workflow
     
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
-    
-    if not workflow:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Workflow {workflow_id} not found"
-        )
+    _assert_owner_or_404(workflow, current_user)
     
     # Decrypt sensitive fields for display
     decrypted_data = _decrypt_workflow_secrets(workflow.workflow_data)
@@ -542,6 +603,10 @@ async def get_workflow(
         is_active=workflow.is_active,
         is_template=workflow.is_template,
         author_id=workflow.author_id,
+        owner_id=workflow.owner_id,
+        visibility=workflow.visibility or "private",
+        share_id=workflow.share_id,
+        workflow_settings=workflow.workflow_settings,
         created_at=workflow.created_at.isoformat(),
         updated_at=workflow.updated_at.isoformat(),
         last_run_at=workflow.last_run_at.isoformat() if workflow.last_run_at else None,
@@ -572,12 +637,7 @@ async def update_workflow(
     from app.database.models.workflow import Workflow
     
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
-    
-    if not workflow:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Workflow {workflow_id} not found"
-        )
+    _assert_owner_or_404(workflow, current_user)
     
     try:
         # Update basic fields
@@ -655,6 +715,10 @@ async def update_workflow(
             is_active=workflow.is_active,
             is_template=workflow.is_template,
             author_id=workflow.author_id,
+            owner_id=workflow.owner_id,
+            visibility=workflow.visibility or "private",
+            share_id=workflow.share_id,
+            workflow_settings=workflow.workflow_settings,
             created_at=workflow.created_at.isoformat(),
             updated_at=workflow.updated_at.isoformat(),
             last_run_at=workflow.last_run_at.isoformat() if workflow.last_run_at else None,
@@ -696,12 +760,7 @@ async def delete_workflow(
     from app.database.models.workflow import Workflow
     
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
-    
-    if not workflow:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Workflow {workflow_id} not found"
-        )
+    _assert_owner_or_404(workflow, current_user)
     
     try:
         workflow_name = workflow.name
@@ -742,12 +801,7 @@ async def rename_workflow(
     from app.database.models.workflow import Workflow
     
     workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
-    
-    if not workflow:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Workflow {workflow_id} not found"
-        )
+    _assert_owner_or_404(workflow, current_user)
     
     try:
         old_name = workflow.name
@@ -777,6 +831,10 @@ async def rename_workflow(
             is_active=workflow.is_active,
             is_template=workflow.is_template,
             author_id=workflow.author_id,
+            owner_id=workflow.owner_id,
+            visibility=workflow.visibility or "private",
+            share_id=workflow.share_id,
+            workflow_settings=workflow.workflow_settings,
             created_at=workflow.created_at.isoformat(),
             updated_at=workflow.updated_at.isoformat(),
             last_run_at=workflow.last_run_at.isoformat() if workflow.last_run_at else None,
@@ -815,12 +873,7 @@ async def duplicate_workflow(
     from app.database.models.workflow import Workflow
     
     original = db.query(Workflow).filter(Workflow.id == workflow_id).first()
-    
-    if not original:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Workflow {workflow_id} not found"
-        )
+    _assert_owner_or_404(original, current_user)
     
     try:
         # Create duplicate
@@ -834,6 +887,10 @@ async def duplicate_workflow(
             tags=original.tags.copy() if original.tags else None,
             execution_config=original.execution_config.copy() if original.execution_config else None,
             author_id=current_user.id,
+            owner_id=current_user.id,
+            visibility="private",
+            share_id=None,
+            workflow_settings=None,
             status="na",  # Reset status
             is_active=True,
             is_template=False
@@ -863,12 +920,16 @@ async def duplicate_workflow(
             is_active=duplicate.is_active,
             is_template=duplicate.is_template,
             author_id=duplicate.author_id,
+            owner_id=duplicate.owner_id,
+            visibility=duplicate.visibility or "private",
+            share_id=duplicate.share_id,
+            workflow_settings=duplicate.workflow_settings,
             created_at=duplicate.created_at.isoformat(),
             updated_at=duplicate.updated_at.isoformat(),
             last_run_at=duplicate.last_run_at.isoformat() if duplicate.last_run_at else None,
             recommended_await_completion=duplicate.recommended_await_completion or "false"
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to duplicate workflow {workflow_id}: {e}", exc_info=True)
         db.rollback()
@@ -876,6 +937,160 @@ async def duplicate_workflow(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to duplicate workflow: {str(e)}"
         )
+
+
+@router.patch(
+    "/{workflow_id}/settings",
+    response_model=WorkflowResponse,
+    summary="Update workflow settings (sharing/visibility)",
+    description="Update workflow-level settings such as visibility (private/link/public)."
+)
+async def update_workflow_settings(
+    workflow_id: str,
+    settings_update: WorkflowSettingsUpdate,
+    db: Session = Depends(get_db),
+    current_user: JWTUser = Depends(get_current_user_smart)
+):
+    from app.database.models.workflow import Workflow
+
+    workflow = db.query(Workflow).filter(Workflow.id == workflow_id).first()
+    _assert_owner_or_404(workflow, current_user)
+
+    if settings_update.visibility is not None:
+        workflow.visibility = settings_update.visibility
+        # Ensure share_id exists when "link" visibility is selected
+        if settings_update.visibility == "link" and not workflow.share_id:
+            workflow.share_id = str(uuid.uuid4())
+
+    if settings_update.workflow_settings is not None:
+        # Merge into existing settings to avoid wiping unrelated keys
+        current_settings = workflow.workflow_settings or {}
+        if isinstance(current_settings, dict) and isinstance(settings_update.workflow_settings, dict):
+            current_settings.update(settings_update.workflow_settings)
+            workflow.workflow_settings = current_settings
+        else:
+            workflow.workflow_settings = settings_update.workflow_settings
+
+    workflow.updated_at = get_local_now()
+    db.commit()
+    db.refresh(workflow)
+
+    decrypted_data = _decrypt_workflow_secrets(workflow.workflow_data)
+
+    return WorkflowResponse(
+        id=workflow.id,
+        name=workflow.name,
+        description=workflow.description,
+        version=workflow.version,
+        nodes=decrypted_data.get('nodes', []),
+        connections=decrypted_data.get('connections', []),
+        canvas_objects=decrypted_data.get('canvas_objects', []),
+        tags=workflow.tags,
+        execution_config=workflow.execution_config,
+        metadata=decrypted_data.get('metadata', {}),
+        status=workflow.status,
+        is_active=workflow.is_active,
+        is_template=workflow.is_template,
+        author_id=workflow.author_id,
+        owner_id=workflow.owner_id,
+        visibility=workflow.visibility or "private",
+        share_id=workflow.share_id,
+        workflow_settings=workflow.workflow_settings,
+        created_at=workflow.created_at.isoformat(),
+        updated_at=workflow.updated_at.isoformat(),
+        last_run_at=workflow.last_run_at.isoformat() if workflow.last_run_at else None,
+        recommended_await_completion=workflow.recommended_await_completion or "false"
+    )
+
+
+@router.get(
+    "/shared/{share_id}",
+    response_model=SharedWorkflowPreview,
+    summary="Shared workflow preview (by share_id)",
+    description="Public preview of a shared workflow. Does not include node data or secrets."
+)
+async def get_shared_workflow_preview(
+    share_id: str,
+    db: Session = Depends(get_db)
+):
+    from app.database.models.workflow import Workflow
+
+    workflow = db.query(Workflow).filter(Workflow.share_id == share_id).first()
+    _assert_share_visible_or_404(workflow)
+
+    share_mode = None
+    if isinstance(getattr(workflow, "workflow_settings", None), dict):
+        share_mode = workflow.workflow_settings.get("share_mode")
+
+    return SharedWorkflowPreview(
+        share_id=share_id,
+        workflow_id=workflow.id,
+        name=workflow.name,
+        description=workflow.description,
+        tags=workflow.tags if workflow.tags else [],
+        visibility=workflow.visibility or "private",
+        share_mode=share_mode,
+        created_at=workflow.created_at.isoformat() if workflow.created_at else None,
+        updated_at=workflow.updated_at.isoformat() if workflow.updated_at else None,
+    )
+
+
+@router.post(
+    "/shared/{share_id}/fork",
+    response_model=ForkWorkflowResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Duplicate shared workflow into my workspace",
+    description="Creates a private copy of a shared workflow owned by the current user."
+)
+async def fork_shared_workflow(
+    share_id: str,
+    db: Session = Depends(get_db),
+    current_user: JWTUser = Depends(get_current_user_smart)
+):
+    from app.database.models.workflow import Workflow
+
+    source = db.query(Workflow).filter(Workflow.share_id == share_id).first()
+    _assert_share_visible_or_404(source)
+
+    new_id = str(uuid.uuid4())
+
+    # Copy workflow_data but rewrite embedded workflow_id/name/description to match the new instance
+    copied_data = source.workflow_data.copy() if isinstance(source.workflow_data, dict) else source.workflow_data
+    if isinstance(copied_data, dict):
+        copied_data = copied_data.copy()
+        copied_data["workflow_id"] = new_id
+        copied_data["name"] = source.name
+        copied_data["description"] = source.description or ""
+
+    forked = Workflow(
+        id=new_id,
+        name=source.name,
+        description=source.description,
+        version=source.version,
+        workflow_data=copied_data,
+        tags=source.tags.copy() if isinstance(source.tags, list) else source.tags,
+        execution_config=source.execution_config.copy() if isinstance(source.execution_config, dict) else source.execution_config,
+        author_id=current_user.id,  # v1 policy: importer becomes author of their copy
+        owner_id=current_user.id,
+        visibility="private",
+        share_id=None,
+        workflow_settings=None,
+        status="na",
+        last_execution_id=None,
+        is_active=True,
+        is_template=False,
+        recommended_await_completion=source.recommended_await_completion or "false"
+    )
+
+    db.add(forked)
+    db.commit()
+    db.refresh(forked)
+
+    logger.info(
+        f"Forked shared workflow share_id={share_id} source={source.id} -> new={forked.id} by user {get_user_identifier(current_user)}"
+    )
+
+    return ForkWorkflowResponse(workflow_id=forked.id)
 
 
 @router.post(

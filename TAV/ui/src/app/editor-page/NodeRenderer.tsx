@@ -315,17 +315,18 @@ export function NodesLayer({
 }: NodesLayerProps) {
   return (
     <>
-      {nodes.map((node) => {
+      {nodes.map((node, idx) => {
+        const nodeId = (node as any).node_id || (node as any).id || `node-${idx}`;
         // Check if this node is in the multi-selection
-        const isSelected = selectedNodes.has(node.node_id);
+        const isSelected = selectedNodes.has(nodeId);
         
         return (
           <NodeRenderer
-            key={node.node_id}
-            node={{ ...node, selected: isSelected }}
-            executionStatus={nodeStates[node.node_id]?.status || 'idle'}
-            previewData={nodeStates[node.node_id]?.previewData}
-            hasExecutionData={!!nodeExecutionData[node.node_id]}
+            key={nodeId}
+            node={{ ...(node as any), node_id: nodeId, selected: isSelected }}
+            executionStatus={nodeStates[nodeId]?.status || 'idle'}
+            previewData={nodeStates[nodeId]?.previewData}
+            hasExecutionData={!!nodeExecutionData[nodeId]}
             onSelect={onNodeSelect}
             onDelete={onNodeDelete}
             onDragStart={onNodeDragStart}

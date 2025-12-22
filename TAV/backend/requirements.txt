@@ -96,7 +96,9 @@ spacy>=3.7.0
 twilio>=8.10.0
 
 librosa>=0.10.0
+soundfile>=0.12.1
 litellm>=1.76.1
+faster-whisper>=1.0.3
 
 # Optional: Development tools (comment out for production)
 # Testing

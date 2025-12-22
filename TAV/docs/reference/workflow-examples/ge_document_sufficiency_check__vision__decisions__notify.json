@@ -1,0 +1,251 @@
+{
+  "id": "example_ge_document_sufficiency_check",
+  "name": "GE Document Sufficiency Check (Vision → Decisions → Notify)",
+  "description": "Example: convert documents to images, run vision checks (credential validity + sufficiency), branch on decisions, and notify via WhatsApp/email. Shows multiple decision nodes and messaging nodes.",
+  "nodes": [
+    {
+      "node_id": "n_file_polling_trigger",
+      "node_type": "file_polling_trigger",
+      "name": "File Polling Trigger",
+      "category": "triggers",
+      "position": { "x": 30.6, "y": 268 },
+      "input_ports": [],
+      "output_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true },
+        { "name": "file_name", "type": "universal", "display_name": "File Name", "description": "", "required": true }
+      ],
+      "config": {
+        "watch_folder": "\\\\SERVER\\Share\\UploadedPDFFiles",
+        "network_credential": null,
+        "file_pattern": "*",
+        "polling_interval": 5,
+        "recursive": false,
+        "trigger_mode": "per_file",
+        "ignore_existing": false,
+        "move_processed_files": true,
+        "processed_folder_suffix": "_processed"
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-folder-open",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_file_converter_passport_pages",
+      "node_type": "file_converter",
+      "name": "File Converter (PDF → Images, Passport Pages)",
+      "category": "processing",
+      "position": { "x": 376.1, "y": 142.1 },
+      "input_ports": [
+        { "name": "file", "type": "universal", "display_name": "Input File", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "files", "type": "universal", "display_name": "Output Files", "description": "", "required": true },
+        { "name": "first_file", "type": "universal", "display_name": "First File", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": { "conversion_type": "pdf_to_images", "dpi": 300, "image_format": "png", "extract_pages": "8-9", "file_password": "" },
+      "status": "idle",
+      "icon": "fa-solid fa-file-export",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_vision_llm_credential_validity",
+      "node_type": "vision_llm",
+      "name": "Vision LLM (Credential Validity)",
+      "category": "ai",
+      "position": { "x": 2385.7, "y": 796.5 },
+      "input_ports": [
+        { "name": "images", "type": "universal", "display_name": "Image(s)", "description": "", "required": true },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "text", "display_name": "Response", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "local",
+        "llm_model": "VISION_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Check credential validity; be concise.",
+        "user_prompt": "Check passport expiry vs {current_date}. Return reasons if invalid.",
+        "detail_level": "auto",
+        "batch_size": 1,
+        "combine_responses": true,
+        "timeout_seconds": 180
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-eye",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_decision_is_credential_valid",
+      "node_type": "decision",
+      "name": "Decision (Credential Valid?)",
+      "category": "workflow",
+      "position": { "x": 2700.7, "y": 797.6 },
+      "input_ports": [
+        { "name": "input", "type": "universal", "display_name": "Input", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "true", "type": "signal", "display_name": "True", "description": "", "required": true },
+        { "name": "false", "type": "signal", "display_name": "False", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "local",
+        "llm_model": "LOCAL_MODEL",
+        "llm_temperature": 0,
+        "condition": "Is the credential valid?",
+        "evaluation_mode": "intelligent",
+        "include_reasoning": true
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-code-branch",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_vision_llm_sufficiency",
+      "node_type": "vision_llm",
+      "name": "Vision LLM (Sufficiency Summary)",
+      "category": "ai",
+      "position": { "x": 672.9, "y": 135.9 },
+      "input_ports": [
+        { "name": "images", "type": "universal", "display_name": "Image(s)", "description": "", "required": true },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "text", "display_name": "Response", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "local",
+        "llm_model": "VISION_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Evaluate sufficiency; focus on passport validity.",
+        "user_prompt": "Check whether application is sufficient and passport is valid. Keep message concise.",
+        "detail_level": "auto",
+        "batch_size": 0,
+        "combine_responses": true,
+        "timeout_seconds": 180
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-eye",
+      "share_output_to_variables": true,
+      "variable_name": "Vision_Sufficiency",
+      "flipped": false
+    },
+    {
+      "node_id": "n_vision_llm_extract_phone",
+      "node_type": "vision_llm",
+      "name": "Vision LLM (Extract Phone)",
+      "category": "ai",
+      "position": { "x": 706.9, "y": 335.3 },
+      "input_ports": [
+        { "name": "images", "type": "universal", "display_name": "Image(s)", "description": "", "required": true },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "text", "display_name": "Response", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "anthropic",
+        "llm_model": "VISION_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Extract phone only.",
+        "user_prompt": "Extract mobile phone number. Return +<countrycode><number> with no spaces.",
+        "detail_level": "auto",
+        "batch_size": 0,
+        "combine_responses": true,
+        "timeout_seconds": 180
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-eye",
+      "share_output_to_variables": true,
+      "variable_name": "PhoneNumberExtractor",
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_send_invalid",
+      "node_type": "whatsapp_send",
+      "name": "WhatsApp Send (Invalid Notice)",
+      "category": "communication",
+      "position": { "x": 1772.7, "y": 768.6 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "message_content", "type": "universal", "display_name": "Message Content", "description": "", "required": false },
+        { "name": "media_url", "type": "universal", "display_name": "Media URL", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Send Result", "description": "", "required": true },
+        { "name": "message_sid", "type": "text", "display_name": "Message SID", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{PhoneNumberExtractor.response}}",
+        "message_mode": "custom",
+        "message_body": "Your document is invalid for these reasons: {{Vision_Sufficiency.response}}",
+        "content_sid": "",
+        "content_variables": "",
+        "include_media": false,
+        "media_url": ""
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_listener_reply",
+      "node_type": "whatsapp_listener",
+      "name": "WhatsApp Listener (Applicant Reply)",
+      "category": "communication",
+      "position": { "x": 2090.4, "y": 775.6 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "message_body", "type": "text", "display_name": "Message Text", "description": "", "required": true },
+        { "name": "media", "type": "universal", "display_name": "Media Files", "description": "", "required": true },
+        { "name": "message_metadata", "type": "universal", "display_name": "Message Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{PhoneNumberExtractor.response}}",
+        "polling_interval": 2,
+        "timeout_seconds": 300,
+        "listen_mode": "new_only",
+        "since_minutes": 5,
+        "download_media": true
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": false,
+      "flipped": false
+    }
+  ],
+  "connections": [
+    { "connection_id": "c_trigger_to_converter", "source_node_id": "n_file_polling_trigger", "source_port": "file", "target_node_id": "n_file_converter_passport_pages", "target_port": "file" },
+    { "connection_id": "c_converter_to_vision_validity", "source_node_id": "n_file_converter_passport_pages", "source_port": "files", "target_node_id": "n_vision_llm_credential_validity", "target_port": "images" },
+    { "connection_id": "c_validity_to_decision", "source_node_id": "n_vision_llm_credential_validity", "source_port": "response", "target_node_id": "n_decision_is_credential_valid", "target_port": "input" },
+    { "connection_id": "c_decision_false_to_sufficiency", "source_node_id": "n_decision_is_credential_valid", "source_port": "false", "target_node_id": "n_vision_llm_sufficiency", "target_port": "context" },
+    { "connection_id": "c_converter_to_phone_extract", "source_node_id": "n_file_converter_passport_pages", "source_port": "files", "target_node_id": "n_vision_llm_extract_phone", "target_port": "images" },
+    { "connection_id": "c_sufficiency_to_whatsapp_send", "source_node_id": "n_vision_llm_sufficiency", "source_port": "response", "target_node_id": "n_whatsapp_send_invalid", "target_port": "trigger" },
+    { "connection_id": "c_whatsapp_send_to_listener", "source_node_id": "n_whatsapp_send_invalid", "source_port": "result", "target_node_id": "n_whatsapp_listener_reply", "target_port": "trigger" }
+  ],
+  "canvas_objects": []
+}
+
+

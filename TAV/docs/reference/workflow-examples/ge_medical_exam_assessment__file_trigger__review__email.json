@@ -1,0 +1,278 @@
+{
+  "id": "example_ge_medical_exam_assessment",
+  "name": "GE Medical Examination Assessment (Trigger → Review → Decision → Email/PDF)",
+  "description": "Example: monitor for new files, load document text, run an LLM completeness review, branch via Decision, then send email and/or generate a PDF output.",
+  "nodes": [
+    {
+      "node_id": "n_file_polling_trigger",
+      "node_type": "file_polling_trigger",
+      "name": "File Polling Trigger",
+      "category": "triggers",
+      "position": { "x": 216.6, "y": 270.5 },
+      "input_ports": [],
+      "output_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true },
+        { "name": "file_name", "type": "universal", "display_name": "File Name", "description": "", "required": true }
+      ],
+      "config": {
+        "watch_folder": "\\\\SERVER\\Share\\Medex\\Inbox",
+        "network_credential": 1,
+        "file_pattern": "*",
+        "polling_interval": 2,
+        "recursive": false,
+        "trigger_mode": "per_file",
+        "ignore_existing": true,
+        "move_processed_files": false,
+        "processed_folder_suffix": "_processed"
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-folder-open",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_file_listener_report",
+      "node_type": "file_listener",
+      "name": "File Listener (Medical Report)",
+      "category": "processing",
+      "position": { "x": 1205.9, "y": 284.6 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true },
+        { "name": "file_name", "type": "text", "display_name": "File Name", "description": "", "required": true },
+        { "name": "file_path", "type": "text", "display_name": "File Path", "description": "", "required": true }
+      ],
+      "config": {
+        "watch_folder": "\\\\SERVER\\Share\\Medex\\V2",
+        "network_credential": 1,
+        "file_pattern": "MedicalExaminerReport.pdf",
+        "polling_interval": 2,
+        "timeout_seconds": 900,
+        "recursive": true,
+        "return_first": true,
+        "delete_after_read": false,
+        "ignore_existing": true,
+        "move_processed_files": true,
+        "processed_folder_suffix": "_processed"
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-file",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_document_loader",
+      "node_type": "document_loader",
+      "name": "Document Loader",
+      "category": "processing",
+      "position": { "x": 1501.2, "y": 53.9 },
+      "input_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "text", "type": "universal", "display_name": "Text Content", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": { "extract_pages": "all", "chunk_text": false, "chunk_size": 1000, "chunk_overlap": 200, "annotations": null, "file_password": "" },
+      "status": "idle",
+      "icon": "fa-solid fa-file-lines",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_llm_completeness_review",
+      "node_type": "large_language_model",
+      "name": "Large Language Model (Completeness Review)",
+      "category": "ai",
+      "position": { "x": 1853.4, "y": 32.2 },
+      "input_ports": [
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "text", "display_name": "Response", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "anthropic",
+        "llm_model": "LLM_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Review form completeness; output COMPLETE/INCOMPLETE with checklist.",
+        "user_prompt": "Review the medical examination form text in context and assess completeness."
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-brain",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_decision_is_complete",
+      "node_type": "decision",
+      "name": "Decision (Is Complete?)",
+      "category": "workflow",
+      "position": { "x": 2177.3, "y": 44.1 },
+      "input_ports": [
+        { "name": "input", "type": "universal", "display_name": "Input", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "true", "type": "signal", "display_name": "True", "description": "", "required": true },
+        { "name": "false", "type": "signal", "display_name": "False", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "local",
+        "llm_model": "LOCAL_MODEL",
+        "llm_temperature": 0,
+        "condition": "The completeness review indicates COMPLETE.",
+        "evaluation_mode": "intelligent",
+        "include_reasoning": true
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-code-branch",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_pdf_writer_generate_letter",
+      "node_type": "pdf_writer",
+      "name": "PDF Writer (Generate Letter)",
+      "category": "export",
+      "position": { "x": 2421.2, "y": 596.5 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Data to Export", "description": "", "required": true },
+        { "name": "template", "type": "universal", "display_name": "Template PDF (Optional)", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Export Result", "description": "", "required": true },
+        { "name": "file", "type": "universal", "display_name": "File (MediaFormat)", "description": "", "required": true }
+      ],
+      "config": {
+        "export_mode": "download",
+        "output_folder": "",
+        "network_credential": "",
+        "filename": "Insurance_application_approval_{timestamp}",
+        "llm_provider": "local",
+        "llm_model": "LOCAL_MODEL",
+        "llm_temperature": 0,
+        "mode": "template",
+        "template_file": "FILE_ID_APPROVAL_TEMPLATE",
+        "replacements": "",
+        "use_input_as_replacements": false,
+        "replacement_mode": "exact",
+        "preserve_font_size": true,
+        "override_font_size": 0,
+        "preserve_font_family": true,
+        "use_ai": false,
+        "prompt": "",
+        "title": "",
+        "page_size": "letter",
+        "font_size": 12,
+        "include_timestamp": true,
+        "content_type": "auto"
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-file-pdf",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_email_complete",
+      "node_type": "email_composer",
+      "name": "Email Composer (Complete)",
+      "category": "communication",
+      "position": { "x": 3131.7, "y": 30.8 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "content", "type": "universal", "display_name": "Content", "description": "", "required": false },
+        { "name": "attachments", "type": "universal", "display_name": "Attachments", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "draft", "type": "universal", "display_name": "Email Draft", "description": "", "required": true },
+        { "name": "result", "type": "universal", "display_name": "Send Result", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "local",
+        "llm_model": "LOCAL_MODEL",
+        "llm_temperature": 0,
+        "composition_mode": "ai_draft",
+        "review_required": false,
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "provider": "gmail",
+        "from_email": "no-reply@example.com",
+        "password": "<ENCRYPTED_PASSWORD>",
+        "from_name": "Alert",
+        "custom_smtp_server": "",
+        "custom_smtp_port": 587,
+        "ai_prompt": "Send acceptance letter summary to recipient@example.com with polite tone.",
+        "recipient": "",
+        "subject": "",
+        "body": "",
+        "cc": "",
+        "bcc": "",
+        "reply_to": ""
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-envelope-open-text",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_email_incomplete",
+      "node_type": "email_composer",
+      "name": "Email Composer (Incomplete)",
+      "category": "communication",
+      "position": { "x": 2531.3, "y": 205.3 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "content", "type": "universal", "display_name": "Content", "description": "", "required": false },
+        { "name": "attachments", "type": "universal", "display_name": "Attachments", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "draft", "type": "universal", "display_name": "Email Draft", "description": "", "required": true },
+        { "name": "result", "type": "universal", "display_name": "Send Result", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "local",
+        "llm_model": "LOCAL_MODEL",
+        "llm_temperature": 0,
+        "composition_mode": "ai_draft",
+        "review_required": false,
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "provider": "gmail",
+        "from_email": "no-reply@example.com",
+        "password": "",
+        "from_name": "Medical Form Review",
+        "custom_smtp_server": "",
+        "custom_smtp_port": 587,
+        "ai_prompt": "Notify clinic about missing items; request resubmission.",
+        "recipient": "",
+        "subject": "",
+        "body": "",
+        "cc": "",
+        "bcc": "",
+        "reply_to": ""
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-envelope-open-text",
+      "share_output_to_variables": false,
+      "flipped": false
+    }
+  ],
+  "connections": [
+    { "connection_id": "c_trigger_to_file_listener", "source_node_id": "n_file_polling_trigger", "source_port": "file", "target_node_id": "n_file_listener_report", "target_port": "trigger" },
+    { "connection_id": "c_file_listener_to_loader", "source_node_id": "n_file_listener_report", "source_port": "file", "target_node_id": "n_document_loader", "target_port": "file" },
+    { "connection_id": "c_loader_to_review", "source_node_id": "n_document_loader", "source_port": "text", "target_node_id": "n_llm_completeness_review", "target_port": "context" },
+    { "connection_id": "c_review_to_decision", "source_node_id": "n_llm_completeness_review", "source_port": "response", "target_node_id": "n_decision_is_complete", "target_port": "input" },
+    { "connection_id": "c_decision_true_to_pdf_writer", "source_node_id": "n_decision_is_complete", "source_port": "true", "target_node_id": "n_pdf_writer_generate_letter", "target_port": "data" },
+    { "connection_id": "c_pdf_to_email_attachments", "source_node_id": "n_pdf_writer_generate_letter", "source_port": "file", "target_node_id": "n_email_complete", "target_port": "attachments" },
+    { "connection_id": "c_decision_true_to_email_complete", "source_node_id": "n_decision_is_complete", "source_port": "true", "target_node_id": "n_email_complete", "target_port": "trigger" },
+    { "connection_id": "c_decision_false_to_email_incomplete", "source_node_id": "n_decision_is_complete", "source_port": "false", "target_node_id": "n_email_incomplete", "target_port": "trigger" },
+    { "connection_id": "c_review_to_email_content", "source_node_id": "n_llm_completeness_review", "source_port": "response", "target_node_id": "n_email_incomplete", "target_port": "content" }
+  ],
+  "canvas_objects": []
+}
+
+

@@ -182,6 +182,9 @@ class ConversationMessage(Base):
     
     response_time_ms = Column(Integer, nullable=True)
     # How long AI took to respond (milliseconds)
+
+    # UI trace/activity (status + tool events) for this message (primarily assistant messages)
+    activity = Column(JSON, nullable=True)
     
     # Timestamp
     created_at = Column(DateTime, nullable=False, default=get_local_now, index=True)

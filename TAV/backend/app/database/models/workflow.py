@@ -37,6 +37,13 @@ class Workflow(Base):
     # Metadata
     tags = Column(JSON, nullable=True)  # Array of tags for categorization
     author_id = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+
+    # Ownership & sharing (foundation for collaboration/marketplace)
+    # owner_id controls visibility/permissions; author_id is attribution/credit.
+    owner_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    visibility = Column(String(20), nullable=False, default="private", index=True)  # private|link|public
+    share_id = Column(String(36), nullable=True, unique=True, index=True)  # opaque id for selective share link
+    workflow_settings = Column(JSON, nullable=True)  # per-workflow settings blob (future-proof)
     
     # Execution configuration (overrides global settings)
     # See EXECUTION_CONFIG_REFERENCE.md for field definitions
@@ -81,6 +88,9 @@ class Workflow(Base):
         Index('idx_workflows_is_active', 'is_active'),
         Index('idx_workflows_last_run_at', 'last_run_at'),
         Index('idx_workflows_author_id', 'author_id'),
+        Index('idx_workflows_owner_id', 'owner_id'),
+        Index('idx_workflows_visibility', 'visibility'),
+        Index('idx_workflows_share_id', 'share_id'),
         Index('idx_workflows_created_at', 'created_at'),
         Index('idx_workflows_template_category', 'template_category'),
         Index('idx_workflows_is_template_category', 'is_template', 'template_category'),

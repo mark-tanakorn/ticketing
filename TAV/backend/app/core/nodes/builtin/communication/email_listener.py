@@ -6,12 +6,12 @@ from email.header import decode_header
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple, List
- 
+
 from app.core.nodes.base import Node, NodeExecutionInput
 from app.core.nodes.registry import register_node
 from app.schemas.workflow import NodeCategory, PortType
- 
- 
+
+
 @register_node(
     node_type="email_listener",
     category=NodeCategory.COMMUNICATION,
@@ -25,7 +25,7 @@ from app.schemas.workflow import NodeCategory, PortType
 )
 class EmailListenerNode(Node):
     logger = logging.getLogger(__name__)
- 
+
     @classmethod
     def get_input_ports(cls):
         return [
@@ -44,7 +44,7 @@ class EmailListenerNode(Node):
                 "required": False,
             },
         ]
- 
+
     @classmethod
     def get_output_ports(cls):
         return [
@@ -84,7 +84,7 @@ class EmailListenerNode(Node):
                 "required": False,
             },
         ]
- 
+
     @classmethod
     def get_config_schema(cls):
         return {
@@ -260,11 +260,11 @@ class EmailListenerNode(Node):
                 "default": False,
             },
         }
- 
+
     # -------------------------
     # Small utilities
     # -------------------------
- 
+
     def _poll_level(self) -> Optional[int]:
         mode = (self.config.get("poll_logs") or "info").lower().strip()
         if mode == "off":
@@ -272,10 +272,10 @@ class EmailListenerNode(Node):
         if mode == "debug":
             return logging.DEBUG
         return logging.INFO
- 
+
     def _log(self, level: int, msg: str) -> None:
         self.logger.log(level, msg)
- 
+
     @staticmethod
     def _safe_int(value: Any) -> Optional[int]:
         try:
@@ -284,11 +284,11 @@ class EmailListenerNode(Node):
             return int(value)
         except Exception:
             return None
- 
+
     # -------------------------
     # IMAP helpers
     # -------------------------
- 
+
     def _resolve_imap_settings(self) -> Tuple[str, int]:
         provider = (self.config.get("provider") or "gmail").lower().strip()
         if provider == "gmail":
@@ -297,25 +297,25 @@ class EmailListenerNode(Node):
             return ("outlook.office365.com", 993)
         if provider == "yahoo":
             return ("imap.mail.yahoo.com", 993)
- 
+
         host = (self.config.get("custom_imap_server") or "").strip()
         port = int(self.config.get("custom_imap_port") or 993)
         if not host:
             raise ValueError("Custom IMAP selected but custom_imap_server is empty.")
         return (host, port)
- 
+
     def _resolve_folder(self) -> str:
         return (self.config.get("folder") or "INBOX").strip()
- 
+
     @staticmethod
     def _quote_mailbox(mailbox: str) -> str:
         mb = (mailbox or "").strip()
         mb = mb.replace("\\", "\\\\").replace('"', '\\"')
         return f'"{mb}"'
- 
+
     def _get_auth_from_credentials(self, input_data: NodeExecutionInput) -> Tuple[str, str]:
         cred_id = self._safe_int(self.config.get("credential_id"))
- 
+
         if cred_id is not None and input_data.credentials:
             cred = input_data.credentials.get(cred_id)
             if cred:
@@ -323,7 +323,7 @@ class EmailListenerNode(Node):
                 password = cred.get("app_password") or cred.get("password") or cred.get("token") or ""
                 if username and password:
                     return username, password
- 
+
         username = (self.config.get("email_address") or "").strip()
         password = self.config.get("password") or ""
         if not username:
@@ -331,38 +331,38 @@ class EmailListenerNode(Node):
         if not password:
             raise ValueError("Missing email password. Provide credential_id or fill password (fallback).")
         return username, password
- 
+
     def _imap_connect(self, input_data: NodeExecutionInput) -> imaplib.IMAP4_SSL:
         host, port = self._resolve_imap_settings()
         username, password = self._get_auth_from_credentials(input_data)
         client = imaplib.IMAP4_SSL(host, port)
         client.login(username, password)
         return client
- 
+
     def _imap_select_folder(self, client: imaplib.IMAP4_SSL, folder: str) -> None:
         mailbox = self._quote_mailbox(folder)
         status, _ = client.select(mailbox)
         if status != "OK":
             raise RuntimeError(f"Failed to select folder '{folder}' on IMAP server (status={status}).")
- 
+
     def _imap_login_and_select(self, input_data: NodeExecutionInput) -> Tuple[imaplib.IMAP4_SSL, str]:
         client = self._imap_connect(input_data)
         folder = self._resolve_folder()
         self._imap_select_folder(client, folder)
         return client, folder
- 
+
     def _imap_noop(self, client: imaplib.IMAP4_SSL) -> None:
         client.noop()
- 
+
     @staticmethod
     def _imap_since_date_str(dt_utc: datetime) -> str:
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
         return f"{dt_utc.day:02d}-{months[dt_utc.month - 1]}-{dt_utc.year}"
- 
+
     def _imap_search(self, client: imaplib.IMAP4_SSL, activation_time: datetime) -> List[bytes]:
         mode = (self.config.get("search_mode") or "all").lower().strip()
         use_since = bool(self.config.get("use_since_optimization", True))
- 
+
         criteria: List[str] = []
         if mode == "unseen":
             criteria.append("UNSEEN")
@@ -370,16 +370,16 @@ class EmailListenerNode(Node):
             criteria.append("RECENT")
         else:
             criteria.append("ALL")
- 
+
         if use_since:
             criteria.append("SINCE")
             criteria.append(self._imap_since_date_str(activation_time))
- 
+
         status, data = client.search(None, *criteria)
         if status != "OK" or not data or not data[0]:
             return []
         return data[0].split()
- 
+
     def _imap_fetch_message(self, client: imaplib.IMAP4_SSL, msg_id: bytes) -> email.message.Message:
         status, data = client.fetch(msg_id, "(RFC822)")
         if status != "OK" or not data:
@@ -392,14 +392,14 @@ class EmailListenerNode(Node):
         if raw is None:
             raise RuntimeError("No RFC822 payload returned by IMAP server.")
         return email.message_from_bytes(raw)
- 
+
     def _imap_mark_seen(self, client: imaplib.IMAP4_SSL, msg_id: bytes) -> None:
         client.store(msg_id, "+FLAGS", "\\Seen")
- 
+
     # -------------------------
     # Email parsing/filtering
     # -------------------------
- 
+
     @staticmethod
     def _decode_mime_header(value: Optional[str]) -> str:
         if not value:
@@ -415,7 +415,7 @@ class EmailListenerNode(Node):
             else:
                 decoded.append(text)
         return "".join(decoded).strip()
- 
+
     @staticmethod
     def _parse_email_date(msg: email.message.Message) -> Optional[datetime]:
         date_hdr = msg.get("Date")
@@ -430,12 +430,12 @@ class EmailListenerNode(Node):
             return dt.astimezone(timezone.utc)
         except Exception:
             return None
- 
+
     @staticmethod
     def _extract_bodies(msg: email.message.Message) -> Dict[str, Any]:
         text_parts: List[str] = []
         html_parts: List[str] = []
- 
+
         def decode_payload(part: email.message.Message) -> str:
             payload = part.get_payload(decode=True)
             if payload is None:
@@ -445,7 +445,7 @@ class EmailListenerNode(Node):
                 return payload.decode(charset, errors="replace")
             except Exception:
                 return payload.decode("utf-8", errors="replace")
- 
+
         if msg.is_multipart():
             for part in msg.walk():
                 ctype = (part.get_content_type() or "").lower()
@@ -470,9 +470,9 @@ class EmailListenerNode(Node):
                 content = decode_payload(msg).strip()
                 if content:
                     html_parts.append(content)
- 
+
         return {"text": "\n\n".join(text_parts).strip(), "html": "\n\n".join(html_parts).strip()}
- 
+
     @staticmethod
     def _strip_html_basic(html_text: str) -> str:
         if not html_text:
@@ -489,7 +489,20 @@ class EmailListenerNode(Node):
             if not in_tag:
                 out.append(ch)
         return " ".join("".join(out).split()).strip()
- 
+
+    def _extract_main_message(self, body_text: str) -> str:
+        """Extract the main message from email body, ignoring reply chains."""
+        if not body_text:
+            return ""
+        lines = body_text.split('\n')
+        main_message = ""
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('>') and not line.lower().startswith('on ') and not 'wrote:' in line.lower():
+                main_message = line
+                break
+        return main_message
+
     def _matches_filters(self, sender: str, subject: str) -> bool:
         from_filter = (self.config.get("from_filter") or "").strip().lower()
         subj_filter = (self.config.get("subject_contains") or "").strip().lower()
@@ -498,36 +511,36 @@ class EmailListenerNode(Node):
         if subj_filter and subj_filter not in (subject or "").lower():
             return False
         return True
- 
+
     # -------------------------
     # Execution
     # -------------------------
- 
+
     async def execute(self, input_data: NodeExecutionInput):
         context = (input_data.ports or {}).get("context")
- 
+
         polling_interval = int(self.config.get("polling_interval_seconds") or 5)
         if polling_interval < 1:
             polling_interval = 1
- 
+
         timeout_seconds = int(self.config.get("timeout_seconds") or 0)
         reconnect_on_error = bool(self.config.get("reconnect_on_error", True))
         noop_every = int(self.config.get("noop_keepalive_every_polls") or 0)
         max_candidates = int(self.config.get("max_candidates_per_poll") or 0)
         mark_as_read = bool(self.config.get("mark_as_read", False))
- 
+
         only_after_activation = bool(self.config.get("only_after_activation", True))
         log_candidates = bool(self.config.get("log_candidate_headers", False))
         log_skips_before = bool(self.config.get("log_skips_before_activation", False))
- 
+
         activation_time = datetime.now(timezone.utc)
         start_monotonic = asyncio.get_running_loop().time()
- 
+
         host, port = self._resolve_imap_settings()
         folder = self._resolve_folder()
         search_mode = (self.config.get("search_mode") or "all").lower().strip()
         poll_level = self._poll_level()
- 
+
         self._log(
             logging.INFO,
             f"[EmailListener] Start workflow_id={input_data.workflow_id} execution_id={input_data.execution_id} node_id={input_data.node_id}",
@@ -545,14 +558,14 @@ class EmailListenerNode(Node):
             logging.INFO,
             f"[EmailListener] only_after_activation={only_after_activation} use_since_optimization={bool(self.config.get('use_since_optimization', True))} max_candidates_per_poll={max_candidates}",
         )
- 
+
         client: Optional[imaplib.IMAP4_SSL] = None
         poll_count = 0
- 
+
         async def connect() -> Tuple[imaplib.IMAP4_SSL, str]:
             c, f = await asyncio.to_thread(self._imap_login_and_select, input_data)
             return c, f
- 
+
         async def reconnect(reason: str) -> None:
             nonlocal client
             self._log(logging.WARNING, f"[EmailListener] Reconnecting IMAP (reason: {reason})")
@@ -564,19 +577,19 @@ class EmailListenerNode(Node):
             client = None
             await asyncio.sleep(min(polling_interval, 2))
             client, _ = await connect()
- 
+
         try:
             client, _ = await connect()
- 
+
             while True:
                 poll_count += 1
- 
+
                 if timeout_seconds > 0:
                     elapsed = asyncio.get_running_loop().time() - start_monotonic
                     if elapsed >= timeout_seconds:
                         self._log(logging.WARNING, f"[EmailListener] Timeout after {int(elapsed)}s waiting for matching email.")
                         raise TimeoutError("Email Listener timed out waiting for a matching email.")
- 
+
                 if noop_every > 0 and (poll_count % noop_every == 0):
                     try:
                         await asyncio.to_thread(self._imap_noop, client)
@@ -585,7 +598,7 @@ class EmailListenerNode(Node):
                             await reconnect(f"NOOP failed: {e}")
                         else:
                             raise
- 
+
                 try:
                     msg_ids = await asyncio.to_thread(self._imap_search, client, activation_time)
                 except Exception as e:
@@ -595,24 +608,24 @@ class EmailListenerNode(Node):
                         continue
                     await asyncio.sleep(polling_interval)
                     continue
- 
+
                 if poll_level is not None:
                     self._log(poll_level, f"[EmailListener] Poll #{poll_count}: candidates={len(msg_ids)} mode={search_mode}")
- 
+
                 msg_ids_iter = list(reversed(msg_ids))
                 if max_candidates > 0:
                     msg_ids_iter = msg_ids_iter[:max_candidates]
- 
+
                 for msg_id in msg_ids_iter:
                     try:
                         msg = await asyncio.to_thread(self._imap_fetch_message, client, msg_id)
                     except Exception:
                         continue
- 
+
                     subject = self._decode_mime_header(msg.get("Subject"))
                     sender = self._decode_mime_header(msg.get("From"))
                     msg_dt = self._parse_email_date(msg)
- 
+
                     if log_candidates and poll_level is not None:
                         hdr_date = self._decode_mime_header(msg.get("Date"))
                         hdr_mid = self._decode_mime_header(msg.get("Message-ID"))
@@ -620,7 +633,7 @@ class EmailListenerNode(Node):
                             poll_level,
                             f"[EmailListener] Candidate msg_id={msg_id!r} From='{sender}' Subject='{subject}' Date='{hdr_date}' Message-ID='{hdr_mid}' parsed_utc='{(msg_dt.isoformat() if msg_dt else None)}'",
                         )
- 
+
                     if only_after_activation:
                         if msg_dt is None:
                             if log_skips_before and poll_level is not None:
@@ -633,13 +646,16 @@ class EmailListenerNode(Node):
                                     f"[EmailListener] Skip msg_id={msg_id!r}: msg_dt={msg_dt.isoformat()} <= activation={activation_time.isoformat()}",
                                 )
                             continue
- 
+
                     if not self._matches_filters(sender=sender, subject=subject):
                         continue
- 
+
                     bodies = self._extract_bodies(msg)
                     content = bodies.get("text") or self._strip_html_basic(bodies.get("html", ""))
- 
+
+                    # Clean the body_text to extract main message
+                    cleaned_body_text = self._extract_main_message(bodies.get("text", ""))
+
                     email_data = {
                         "subject": subject,
                         "from": sender,
@@ -648,31 +664,31 @@ class EmailListenerNode(Node):
                         "date": (msg_dt.isoformat() if msg_dt else None),
                         "message_id": self._decode_mime_header(msg.get("Message-ID")),
                         "headers": {k: self._decode_mime_header(v) for (k, v) in msg.items()},
-                        "body_text": bodies.get("text", ""),
+                        "body_text": cleaned_body_text,
                         "body_html": bodies.get("html", ""),
                     }
- 
+
                     self._log(
                         logging.INFO,
                         f"[EmailListener] MATCH msg_id={msg_id!r} date_utc={(msg_dt.isoformat() if msg_dt else None)} From='{sender}' Subject='{subject}'",
                     )
- 
+
                     if mark_as_read:
                         try:
                             await asyncio.to_thread(self._imap_mark_seen, client, msg_id)
                         except Exception as e:
                             self._log(logging.WARNING, f"[EmailListener] Failed to mark as read msg_id={msg_id!r}: {e}")
- 
+
                     return {
-                        "email": email_data,
+                        "email": cleaned_body_text,  # Simplified to just the main message
                         "subject": subject,
                         "sender": sender,
-                        "content": content or "",
+                        "content": cleaned_body_text,  # Use cleaned message
                         "context": context,
                     }
- 
+
                 await asyncio.sleep(polling_interval)
- 
+
         finally:
             if client is not None:
                 try:

@@ -299,6 +299,12 @@ export function shouldUseVariableInput(field: any): boolean {
   if (field.type === 'string') {
     return true;
   }
+
+  // 6. Backward/alternate schema: some nodes use field.type="text" for string fields
+  // (e.g. generated custom nodes). Treat it as a string field for variable/template inputs.
+  if (field.type === 'text') {
+    return true;
+  }
   
   return false;
 }

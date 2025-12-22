@@ -399,12 +399,15 @@ function ModelSelect({ provider, value, onChange, placeholder }: ModelSelectProp
 // ====================================================================================
 
 interface ConfigField {
-  type: 'string' | 'integer' | 'float' | 'boolean' | 'select' | 'file_picker' | 'keyvalue' | 'credential' | 'object';
+  // Note: In practice, some node schemas use `type` to mean the UI control (widget),
+  // e.g. { type: "select" } instead of { widget: "select", type: "string" }.
+  // We treat `type` and `widget` as interchangeable for rendering.
+  type: string;
   label: string;
   description?: string;
   required?: boolean;
   default?: any;
-  widget?: 'text' | 'textarea' | 'number' | 'checkbox' | 'select' | 'color' | 'date' | 'password' | 'provider_select' | 'model_select' | 'slider' | 'file_picker' | 'keyvalue' | 'credential' | 'huggingface_model_browser' | 'hidden';
+  widget?: 'text' | 'textarea' | 'number' | 'checkbox' | 'select' | 'color' | 'date' | 'password' | 'provider_select' | 'model_select' | 'slider' | 'file_picker' | 'folder_picker' | 'keyvalue' | 'credential' | 'huggingface_model_browser' | 'hidden';
   min?: number;
   max?: number;
   step?: number;
@@ -430,6 +433,35 @@ interface ConfigField {
 
 interface ConfigSchema {
   [key: string]: ConfigField;
+}
+
+const KNOWN_WIDGETS = new Set<string>([
+  'text',
+  'textarea',
+  'number',
+  'checkbox',
+  'select',
+  'color',
+  'date',
+  'password',
+  'provider_select',
+  'model_select',
+  'slider',
+  'file_picker',
+  'folder_picker',
+  'keyvalue',
+  'credential',
+  'huggingface_model_browser',
+  'hidden',
+]);
+
+function getEffectiveWidget(field: ConfigField): string {
+  // Preferred explicit widget
+  if (field.widget) return field.widget;
+  // If `type` looks like a widget, treat it like a widget (requested behavior)
+  if (typeof field.type === 'string' && KNOWN_WIDGETS.has(field.type)) return field.type;
+  // Otherwise infer from data type
+  return getDefaultWidget(field.type);
 }
 
 interface WorkflowNode {
@@ -595,6 +627,7 @@ export function ConfigPanel({
       case 'integer':
       case 'float': return 0;
       case 'string': return '';
+      case 'select': return '';
       default: return null;
     }
   };
@@ -937,7 +970,7 @@ export function ConfigPanel({
               const shouldShow = checkShowIf(field, configValues);
               
               // Skip hidden fields (these are rendered dynamically elsewhere)
-              if (field.widget === 'hidden' || !shouldShow) {
+              if (getEffectiveWidget(field) === 'hidden' || !shouldShow) {
                 return null;
               }
               
@@ -967,7 +1000,7 @@ export function ConfigPanel({
                           value={configValues[key]}
                           onChange={(value) => handleValueChange(key, value)}
                           availableVariables={availableVariables}
-                          widget={field.widget as 'text' | 'textarea' | 'password'}
+                          widget={getEffectiveWidget(field) as 'text' | 'textarea' | 'password'}
                           placeholder={field.placeholder}
                           required={field.required}
                           description={field.description}
@@ -1406,7 +1439,7 @@ function renderField(
   configValues: Record<string, any>,
   onMediaClick?: (media: MediaFormat | MediaFormat[], mode: 'view' | 'edit', index?: number) => void
 ) {
-  const widget = field.widget || getDefaultWidget(field.type);
+  const widget = getEffectiveWidget(field);
 
   switch (widget) {
     case 'textarea':
@@ -1685,6 +1718,12 @@ function getDefaultWidget(type: string): string {
     case 'integer':
     case 'float': return 'number';
     case 'string': return 'text';
+    case 'select': return 'select';
+    // Some nodes use these as "types"; treat them as widgets by default.
+    case 'file_picker': return 'file_picker';
+    case 'folder_picker': return 'folder_picker';
+    case 'keyvalue': return 'keyvalue';
+    case 'credential': return 'credential';
     default: return 'text';
   }
 }

@@ -1,0 +1,283 @@
+{
+  "id": "example_virtual_vending_machine_loop",
+  "name": "Virtual Vending Machine (Loop + State + Simulation)",
+  "description": "Example: a while-loop iterates over days, tracks virtual time, reads/writes persistent state, uses an AI agent to decide actions, simulates business results, tracks metrics/anomalies, and exits when decision says stop. Demonstrates loop wiring and workflow nodes.",
+  "nodes": [
+    {
+      "node_id": "n_while_loop_days",
+      "node_type": "while_loop",
+      "name": "While Loop",
+      "category": "workflow",
+      "position": { "x": 559.4, "y": 186.7 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "iteration_data", "type": "universal", "display_name": "Iteration Data", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "iteration_number", "type": "universal", "display_name": "Iteration Number", "description": "", "required": true },
+        { "name": "max_iterations", "type": "universal", "display_name": "Max Iterations", "description": "", "required": true },
+        { "name": "iteration_label", "type": "text", "display_name": "Iteration Label", "description": "", "required": true },
+        { "name": "continue_loop", "type": "signal", "display_name": "Continue Loop", "description": "", "required": true },
+        { "name": "exit_loop", "type": "signal", "display_name": "Exit Loop", "description": "", "required": true }
+      ],
+      "config": { "max_iterations": "90", "iteration_label_template": "day_{n}" },
+      "status": "idle",
+      "icon": "fa-solid fa-repeat",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_virtual_time",
+      "node_type": "virtual_time",
+      "name": "Virtual Time",
+      "category": "workflow",
+      "position": { "x": 918.4, "y": 142.4 },
+      "input_ports": [
+        { "name": "iteration_number", "type": "universal", "display_name": "Iteration Number", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "virtual_datetime", "type": "text", "display_name": "Virtual DateTime", "description": "", "required": true },
+        { "name": "virtual_timestamp", "type": "universal", "display_name": "Virtual Timestamp", "description": "", "required": true },
+        { "name": "virtual_day", "type": "universal", "display_name": "Virtual Day", "description": "", "required": true },
+        { "name": "time_step_hours", "type": "universal", "display_name": "Time Step (Hours)", "description": "", "required": true }
+      ],
+      "config": { "start_datetime": "2025-01-01 00:00:00", "time_step_value": 1, "time_step_unit": "days" },
+      "status": "idle",
+      "icon": "fa-solid fa-clock",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_state_get",
+      "node_type": "state_get",
+      "name": "Get State",
+      "category": "business",
+      "position": { "x": 944.6, "y": 382.5 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "state_value", "type": "universal", "display_name": "State Value", "description": "", "required": true },
+        { "name": "state_version", "type": "universal", "display_name": "State Version", "description": "", "required": true },
+        { "name": "last_updated_at", "type": "text", "display_name": "Last Updated", "description": "", "required": true },
+        { "name": "found", "type": "signal", "display_name": "Found", "description": "", "required": true },
+        { "name": "not_found", "type": "signal", "display_name": "Not Found", "description": "", "required": true }
+      ],
+      "config": {
+        "state_key": "vending_business",
+        "namespace": "simulation",
+        "default_value": "{\"inventory\":{\"cola\":50,\"water\":50,\"chips\":50},\"cash\":200,\"machine_health\":100}"
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-database",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_ai_agent_decider",
+      "node_type": "ai_agent",
+      "name": "AI Agent (Decide Actions)",
+      "category": "ai",
+      "position": { "x": 1366.3, "y": 125.4 },
+      "input_ports": [
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false },
+        { "name": "tools", "type": "tools", "display_name": "Tools", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "text", "display_name": "Result", "description": "", "required": true },
+        { "name": "steps", "type": "universal", "display_name": "Execution Steps", "description": "", "required": true },
+        { "name": "tool_results", "type": "universal", "display_name": "Tool Results", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "openai",
+        "llm_model": "LLM_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Return JSON actions: restock(bool), restock_items(object), maintenance(bool), reasoning(string).",
+        "user_prompt": "Given CURRENT STATE from {{state_get.state_value}} and Day {{virtual_time.virtual_day}}, decide restock/maintenance actions.",
+        "max_iterations": 3
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-robot",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_vending_simulator",
+      "node_type": "vending_machine_simulator",
+      "name": "Vending Machine Simulator",
+      "category": "business",
+      "position": { "x": 1757.2, "y": 330.8 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "current_state", "type": "universal", "display_name": "Current State", "description": "", "required": true },
+        { "name": "ai_actions", "type": "universal", "display_name": "AI Actions", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "new_state", "type": "universal", "display_name": "New State", "description": "", "required": true },
+        { "name": "metrics", "type": "universal", "display_name": "Daily Metrics", "description": "", "required": true },
+        { "name": "events", "type": "universal", "display_name": "Events", "description": "", "required": true }
+      ],
+      "config": {
+        "avg_customers_per_day": "50",
+        "use_ai_pricing": false,
+        "item_prices": "{\"cola\":2.5,\"water\":1.5,\"chips\":1.0}",
+        "daily_rent": "10",
+        "daily_electricity": "5",
+        "maintenance_cost": "200",
+        "item_cost_per_unit": 0.5,
+        "machine_degradation_rate": "2",
+        "maintenance_health_boost": 30,
+        "enable_delivery_delays": true,
+        "delivery_delay_days": "2"
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-building",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_metric_tracker",
+      "node_type": "metric_tracker",
+      "name": "Metric Tracker",
+      "category": "analytics",
+      "position": { "x": 2297.4, "y": 167.1 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "metrics", "type": "universal", "display_name": "Metrics", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "success", "type": "signal", "display_name": "Success", "description": "", "required": true },
+        { "name": "current_metrics", "type": "universal", "display_name": "Current Metrics", "description": "", "required": true }
+      ],
+      "config": { "track_history": true },
+      "status": "idle",
+      "icon": "fa-solid fa-chart-line",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_anomaly_detector",
+      "node_type": "anomaly_detector",
+      "name": "Anomaly Detector",
+      "category": "analytics",
+      "position": { "x": 2293.1, "y": 285.4 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "metrics", "type": "universal", "display_name": "Metrics", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "normal", "type": "signal", "display_name": "Normal", "description": "", "required": true },
+        { "name": "anomaly_detected", "type": "signal", "display_name": "Anomaly Detected", "description": "", "required": true },
+        { "name": "anomalies", "type": "universal", "display_name": "Anomalies", "description": "", "required": true },
+        { "name": "severity", "type": "text", "display_name": "Severity", "description": "", "required": true }
+      ],
+      "config": { "rules": "[{\"metric\":\"machine_health\",\"condition\":\"less_than\",\"threshold\":50,\"severity\":\"critical\"}]" },
+      "status": "idle",
+      "icon": "fa-solid fa-triangle-exclamation",
+      "share_output_to_variables": true,
+      "flipped": false
+    },
+    {
+      "node_id": "n_state_set",
+      "node_type": "state_set",
+      "name": "Set State",
+      "category": "business",
+      "position": { "x": 2657.9, "y": 719.7 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "state_value", "type": "universal", "display_name": "State Value", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "success", "type": "signal", "display_name": "Success", "description": "", "required": true },
+        { "name": "state_version", "type": "universal", "display_name": "State Version", "description": "", "required": true }
+      ],
+      "config": { "state_key": "vending_business", "namespace": "simulation" },
+      "status": "idle",
+      "icon": "fa-solid fa-save",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_decision_continue",
+      "node_type": "decision",
+      "name": "Decision (Continue Simulation?)",
+      "category": "workflow",
+      "position": { "x": 1338.9, "y": 867.6 },
+      "input_ports": [
+        { "name": "input", "type": "universal", "display_name": "Input", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "true", "type": "signal", "display_name": "True", "description": "", "required": true },
+        { "name": "false", "type": "signal", "display_name": "False", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "anthropic",
+        "llm_model": "LLM_MODEL",
+        "llm_temperature": 0,
+        "condition": "Continue if profitable/healthy and no critical anomalies; stop if bankrupt or day limit reached.",
+        "evaluation_mode": "intelligent",
+        "include_reasoning": true
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-code-branch",
+      "share_output_to_variables": false,
+      "flipped": true
+    },
+    {
+      "node_id": "n_report_builder",
+      "node_type": "simulation_report_builder",
+      "name": "Simulation Report Builder",
+      "category": "analytics",
+      "position": { "x": 586.8, "y": 888.7 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "report_data", "type": "universal", "display_name": "Report Data", "description": "", "required": true },
+        { "name": "summary", "type": "universal", "display_name": "Summary Statistics", "description": "", "required": true },
+        { "name": "coherence_report", "type": "universal", "display_name": "Coherence Analysis", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-pie-chart",
+      "share_output_to_variables": false,
+      "flipped": true
+    },
+    {
+      "node_id": "n_csv_writer_report",
+      "node_type": "csv_writer",
+      "name": "CSV Writer (Simulation Report)",
+      "category": "export",
+      "position": { "x": 186.6, "y": 856.7 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Data to Export", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Export Result", "description": "", "required": true },
+        { "name": "file", "type": "universal", "display_name": "File (MediaFormat)", "description": "", "required": true }
+      ],
+      "config": { "export_mode": "download", "output_folder": "", "network_credential": "", "filename": "vending_simulation_report_{timestamp}", "columns": null, "headers": null, "delimiter": ",", "include_headers": true },
+      "status": "idle",
+      "icon": "fa-solid fa-file-csv",
+      "share_output_to_variables": false,
+      "flipped": true
+    }
+  ],
+  "connections": [
+    { "connection_id": "c_loop_to_virtual_time", "source_node_id": "n_while_loop_days", "source_port": "iteration_number", "target_node_id": "n_virtual_time", "target_port": "iteration_number" },
+    { "connection_id": "c_loop_continue_to_state_get", "source_node_id": "n_while_loop_days", "source_port": "continue_loop", "target_node_id": "n_state_get", "target_port": "trigger" },
+    { "connection_id": "c_state_to_agent_context", "source_node_id": "n_state_get", "source_port": "state_value", "target_node_id": "n_ai_agent_decider", "target_port": "context" },
+    { "connection_id": "c_agent_to_sim_actions", "source_node_id": "n_ai_agent_decider", "source_port": "result", "target_node_id": "n_vending_simulator", "target_port": "ai_actions" },
+    { "connection_id": "c_state_to_sim_state", "source_node_id": "n_state_get", "source_port": "state_value", "target_node_id": "n_vending_simulator", "target_port": "current_state" },
+    { "connection_id": "c_sim_metrics_to_tracker", "source_node_id": "n_vending_simulator", "source_port": "metrics", "target_node_id": "n_metric_tracker", "target_port": "metrics" },
+    { "connection_id": "c_sim_metrics_to_anomaly", "source_node_id": "n_vending_simulator", "source_port": "metrics", "target_node_id": "n_anomaly_detector", "target_port": "metrics" },
+    { "connection_id": "c_sim_new_state_to_state_set", "source_node_id": "n_vending_simulator", "source_port": "new_state", "target_node_id": "n_state_set", "target_port": "state_value" },
+    { "connection_id": "c_state_set_success_to_decision", "source_node_id": "n_state_set", "source_port": "success", "target_node_id": "n_decision_continue", "target_port": "input" },
+    { "connection_id": "c_decision_true_to_loop_trigger", "source_node_id": "n_decision_continue", "source_port": "true", "target_node_id": "n_while_loop_days", "target_port": "trigger" },
+    { "connection_id": "c_decision_false_to_report_builder", "source_node_id": "n_decision_continue", "source_port": "false", "target_node_id": "n_report_builder", "target_port": "trigger" },
+    { "connection_id": "c_report_to_csv", "source_node_id": "n_report_builder", "source_port": "report_data", "target_node_id": "n_csv_writer_report", "target_port": "data" }
+  ],
+  "canvas_objects": []
+}
+
+

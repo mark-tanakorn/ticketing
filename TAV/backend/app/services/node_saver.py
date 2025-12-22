@@ -29,8 +29,10 @@ class NodeSaver:
         """Initialize node saver with custom nodes directory"""
         # Get custom nodes directory
         current_file = Path(__file__)
-        backend_dir = current_file.parent.parent
-        self.custom_nodes_dir = backend_dir / "app" / "core" / "nodes" / "custom"
+        # node_saver.py lives in: backend/app/services/
+        # We want custom nodes in:   backend/app/core/nodes/custom/
+        app_dir = current_file.parent.parent  # backend/app
+        self.custom_nodes_dir = app_dir / "core" / "nodes" / "custom"
         
         # Ensure directory exists
         self.custom_nodes_dir.mkdir(parents=True, exist_ok=True)

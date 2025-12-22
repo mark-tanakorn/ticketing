@@ -609,7 +609,7 @@ export default function SettingsDemo() {
                         })
                       }
                       min="10"
-                      max="7200"
+                      max="259200"
                       className="w-full border rounded-lg px-4 py-2 focus:outline-none"
                       style={{
                         background: "var(--theme-surface-variant)",
@@ -629,7 +629,7 @@ export default function SettingsDemo() {
                       className="text-xs mt-3"
                       style={{ color: "var(--theme-text-muted)" }}
                     >
-                      Range: 10-7200 seconds
+                      Range: 10-259200 seconds
                     </p>
                   </div>
 
@@ -703,7 +703,7 @@ export default function SettingsDemo() {
                         })
                       }
                       min="60"
-                      max="86400"
+                      max="345600"
                       className="w-full border rounded-lg px-4 py-2 focus:outline-none"
                       style={{
                         background: "var(--theme-surface-variant)",
@@ -723,7 +723,7 @@ export default function SettingsDemo() {
                       className="text-xs mt-3"
                       style={{ color: "var(--theme-text-muted)" }}
                     >
-                      Range: 60-86400 seconds
+                      Range: 60-345600 seconds
                     </p>
                   </div>
                 </div>

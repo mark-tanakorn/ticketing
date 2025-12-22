@@ -9,6 +9,8 @@ import {
   getWorkflow,
   listWorkflows,
   fetchNodeDefinitions,
+  updateWorkflowSettings,
+  type WorkflowVisibility,
 } from "@/lib/editor";
 import { NodesLayer } from "./NodeRenderer";
 import { ConnectionsLayer } from "./ConnectionsLayer";
@@ -50,6 +52,11 @@ function WorkflowEditorInner() {
   const [workflowId, setWorkflowId] = useState<string | null>(null);
   const [workflowName, setWorkflowName] = useState("Untitled Workflow");
   const [workflowDescription, setWorkflowDescription] = useState("");
+  const [workflowVisibility, setWorkflowVisibility] = useState<WorkflowVisibility>('private');
+  const [workflowShareId, setWorkflowShareId] = useState<string | null>(null);
+  const [showWorkflowSettingsModal, setShowWorkflowSettingsModal] = useState(false);
+  const [workflowVisibilityDraft, setWorkflowVisibilityDraft] = useState<WorkflowVisibility>('private');
+  const [isSavingWorkflowSettings, setIsSavingWorkflowSettings] = useState(false);
   const [nodes, setNodes] = useState<any[]>([]);
   const [connections, setConnections] = useState<any[]>([]);
   const [isDirty, setIsDirty] = useState(false);
@@ -401,18 +408,20 @@ function WorkflowEditorInner() {
     setWorkflowId(workflow.id); // This ID might not exist in backend yet!
     setWorkflowName(workflow.name);
     setWorkflowDescription(workflow.description || "");
+    setWorkflowVisibility('private');
+    setWorkflowShareId(null);
     setNodes(workflow.nodes);
     
     const convertedConnections = workflow.connections.map((conn: any) => ({
       id: conn.connection_id || conn.id,
       connection_id: conn.connection_id || conn.id,
       source: {
-        node_id: conn.source_node_id,
-        port_id: conn.source_port
+        node_id: conn.source_node_id || conn.from_node_id,
+        port_id: conn.source_port || conn.from_port
       },
       target: {
-        node_id: conn.target_node_id,
-        port_id: conn.target_port
+        node_id: conn.target_node_id || conn.to_node_id,
+        port_id: conn.target_port || conn.to_port
       }
     }));
     setConnections(convertedConnections);
@@ -491,6 +500,8 @@ function WorkflowEditorInner() {
       const created = await createWorkflow(workflowData);
       setWorkflowId(created.id);
       setWorkflowName(newName);
+      setWorkflowVisibility((created.visibility as WorkflowVisibility) || 'private');
+      setWorkflowShareId(created.share_id || null);
       
       // Update URL with new workflow ID
       router.push(`/editor-page?workflow=${created.id}`);
@@ -517,6 +528,8 @@ function WorkflowEditorInner() {
       setWorkflowId(created.id);
       setWorkflowName(newName);
       setWorkflowDescription(newDescription);
+      setWorkflowVisibility((created.visibility as WorkflowVisibility) || 'private');
+      setWorkflowShareId(created.share_id || null);
       
       // Update URL with new workflow ID
       router.push(`/editor-page?workflow=${created.id}`);
@@ -542,7 +555,11 @@ function WorkflowEditorInner() {
       
       if (workflowId) {
         // Update existing workflow
-        await updateWorkflow(workflowId, workflowData);
+        const updated = await updateWorkflow(workflowId, workflowData);
+        if (updated) {
+          setWorkflowVisibility((updated.visibility as WorkflowVisibility) || workflowVisibility || 'private');
+          setWorkflowShareId(updated.share_id || workflowShareId || null);
+        }
         
         // Update URL with workflow ID (in case it was loaded without URL parameter)
         router.push(`/editor-page?workflow=${workflowId}`);
@@ -554,6 +571,8 @@ function WorkflowEditorInner() {
         // Create new workflow
         const created = await createWorkflow(workflowData);
         setWorkflowId(created.id);
+        setWorkflowVisibility((created.visibility as WorkflowVisibility) || 'private');
+        setWorkflowShareId(created.share_id || null);
         
         // Update URL with workflow ID
         router.push(`/editor-page?workflow=${created.id}`);
@@ -599,6 +618,8 @@ function WorkflowEditorInner() {
       setWorkflowId(workflow.id);
       setWorkflowName(workflow.name);
       setWorkflowDescription(workflow.description || "");
+      setWorkflowVisibility((workflow.visibility as WorkflowVisibility) || 'private');
+      setWorkflowShareId(workflow.share_id || null);
       setNodes(workflow.nodes);
       
       // Convert connections from backend format to frontend format
@@ -606,25 +627,26 @@ function WorkflowEditorInner() {
         id: conn.connection_id || conn.id,
         connection_id: conn.connection_id || conn.id,
         source: {
-          node_id: conn.source_node_id,
-          port_id: conn.source_port
+          node_id: conn.source_node_id || conn.from_node_id,
+          port_id: conn.source_port || conn.from_port
         },
         target: {
-          node_id: conn.target_node_id,
-          port_id: conn.target_port
+          node_id: conn.target_node_id || conn.to_node_id,
+          port_id: conn.target_port || conn.to_port
         }
       }));
       setConnections(convertedConnections);
       
-      // Backend returns node_id and node_type - use them as-is
+      // Normalize node shape for editor rendering.
+      // Some imported/AI drafts may use {id,type} instead of {node_id,node_type}.
       const canvas = workflow.nodes.map((node: any) => ({
-        node_id: node.node_id,
-        node_type: node.node_type,
-        name: node.name || node.node_type,
+        node_id: node.node_id || node.id,
+        node_type: node.node_type || node.type,
+        name: node.name || node.node_type || node.type,
         category: node.category || 'default',
         position: node.position || { x: 100, y: 100 },
         // Convert backend port format to frontend format
-        inputs: (node.input_ports || [])
+        inputs: (node.input_ports || node.inputs || [])
           .filter((port: any) => port && port.name) // Filter out invalid ports
           .map((port: any) => ({
             id: port.name,                     // Backend 'name' → Frontend 'id'
@@ -633,7 +655,7 @@ function WorkflowEditorInner() {
             description: port.description || '',
             required: port.required !== false
           })),
-        outputs: (node.output_ports || [])
+        outputs: (node.output_ports || node.outputs || [])
           .filter((port: any) => port && port.name) // Filter out invalid ports
           .map((port: any) => ({
             id: port.name,                     // Backend 'name' → Frontend 'id'
@@ -671,6 +693,8 @@ function WorkflowEditorInner() {
     setWorkflowId(null);
     setWorkflowName('Untitled Workflow');
     setWorkflowDescription('');
+    setWorkflowVisibility('private');
+    setWorkflowShareId(null);
     setNodes([]);
     if (allowUndo) {
       // Use a producer to record the clear action so it can be undone
@@ -2353,6 +2377,25 @@ function WorkflowEditorInner() {
             >
               <i className={`fas fa-${isFullscreen ? 'compress' : 'expand'}`}></i>
             </button>
+
+            {/* Workflow settings (sharing/visibility) - furthest right */}
+            <button
+              onClick={() => {
+                setWorkflowVisibilityDraft(workflowVisibility || 'private');
+                setShowWorkflowSettingsModal(true);
+              }}
+              className="px-3 py-1 rounded text-sm transition-colors border"
+              style={{
+                background: 'var(--theme-surface-variant)',
+                color: 'var(--theme-text)',
+                borderColor: 'var(--theme-border)',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--theme-surface-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--theme-surface-variant)'}
+              title="Workflow settings"
+            >
+              <i className="fas fa-cog"></i>
+            </button>
           </div>
         </div>
 
@@ -3050,6 +3093,180 @@ function WorkflowEditorInner() {
           }}
         />
       </div>
+
+      {/* Workflow Settings Modal (sharing/visibility) */}
+      {showWorkflowSettingsModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => !isSavingWorkflowSettings && setShowWorkflowSettingsModal(false)}
+        >
+          <div
+            className="rounded-lg shadow-xl w-full max-w-md"
+            style={{ background: 'var(--theme-surface)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="flex items-center justify-between p-4 border-b"
+              style={{ borderColor: 'var(--theme-border)' }}
+            >
+              <h2 className="text-lg font-semibold" style={{ color: 'var(--theme-text)' }}>
+                <i className="fas fa-cog mr-2"></i>
+                Workflow Settings
+              </h2>
+              <button
+                onClick={() => setShowWorkflowSettingsModal(false)}
+                disabled={isSavingWorkflowSettings}
+                style={{ color: 'var(--theme-text-secondary)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--theme-text)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--theme-text-secondary)')}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {!workflowId && (
+                <div className="text-sm p-3 rounded border" style={{ borderColor: 'var(--theme-border)', color: 'var(--theme-text-muted)' }}>
+                  This workflow isn&apos;t saved yet. Save it first to persist settings.
+                </div>
+              )}
+
+              <div>
+                <div className="text-sm font-medium mb-2" style={{ color: 'var(--theme-text)' }}>
+                  Sharing
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--theme-text)' }}>
+                    <input
+                      type="radio"
+                      name="workflowVisibility"
+                      checked={workflowVisibilityDraft === 'private'}
+                      onChange={() => setWorkflowVisibilityDraft('private')}
+                      disabled={isSavingWorkflowSettings}
+                    />
+                    Private (only you)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--theme-text)' }}>
+                    <input
+                      type="radio"
+                      name="workflowVisibility"
+                      checked={workflowVisibilityDraft === 'link'}
+                      onChange={() => setWorkflowVisibilityDraft('link')}
+                      disabled={isSavingWorkflowSettings}
+                    />
+                    Selective share (link)
+                  </label>
+                  <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--theme-text)' }}>
+                    <input
+                      type="radio"
+                      name="workflowVisibility"
+                      checked={workflowVisibilityDraft === 'public'}
+                      onChange={() => setWorkflowVisibilityDraft('public')}
+                      disabled={isSavingWorkflowSettings}
+                    />
+                    Public (importable)
+                  </label>
+                </div>
+              </div>
+
+              {workflowVisibilityDraft === 'link' && (
+                <div className="space-y-2">
+                  <div className="text-xs" style={{ color: 'var(--theme-text-muted)' }}>
+                    Link sharing isn&apos;t enforced yet (local-only foundation). This will store a share id in the DB.
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={
+                        workflowShareId
+                          ? `${window.location.origin}/shared/${workflowShareId}`
+                          : '(save to generate link)'
+                      }
+                      className="w-full px-3 py-2 border rounded text-sm"
+                      style={{
+                        background: 'var(--theme-surface-variant)',
+                        color: 'var(--theme-text)',
+                        borderColor: 'var(--theme-border)',
+                      }}
+                    />
+                    <button
+                      className="px-3 py-2 rounded text-sm border"
+                      style={{
+                        background: 'var(--theme-surface-variant)',
+                        color: 'var(--theme-text)',
+                        borderColor: 'var(--theme-border)',
+                        whiteSpace: 'nowrap',
+                      }}
+                      disabled={!workflowShareId}
+                      onClick={async () => {
+                        if (!workflowShareId) return;
+                        try {
+                          await navigator.clipboard.writeText(`${window.location.origin}/shared/${workflowShareId}`);
+                          addLog('🔗 Copied share link to clipboard');
+                        } catch (err) {
+                          console.error('Failed to copy link:', err);
+                          alert('Failed to copy link');
+                        }
+                      }}
+                      title="Copy link"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div
+              className="flex items-center justify-end gap-2 p-4 border-t"
+              style={{ borderColor: 'var(--theme-border)' }}
+            >
+              <button
+                onClick={() => setShowWorkflowSettingsModal(false)}
+                disabled={isSavingWorkflowSettings}
+                className="px-4 py-2 rounded"
+                style={{
+                  background: 'var(--theme-surface-variant)',
+                  color: 'var(--theme-text)',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--theme-surface-hover)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--theme-surface-variant)')}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!workflowId) return;
+                  try {
+                    setIsSavingWorkflowSettings(true);
+                    const updated = await updateWorkflowSettings(workflowId, {
+                      visibility: workflowVisibilityDraft,
+                    });
+                    setWorkflowVisibility((updated.visibility as WorkflowVisibility) || workflowVisibilityDraft);
+                    setWorkflowShareId(updated.share_id || null);
+                    setShowWorkflowSettingsModal(false);
+                    addLog(`✅ Updated sharing: ${updated.visibility || workflowVisibilityDraft}`);
+                  } catch (err) {
+                    console.error('Failed to update workflow settings:', err);
+                    addLog(`❌ Failed to update workflow settings: ${err}`);
+                    alert('Failed to update workflow settings');
+                  } finally {
+                    setIsSavingWorkflowSettings(false);
+                  }
+                }}
+                disabled={!workflowId || isSavingWorkflowSettings}
+                className="px-4 py-2 text-white rounded"
+                style={{ background: 'var(--theme-primary)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--theme-primary-hover)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--theme-primary)')}
+              >
+                {isSavingWorkflowSettings ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Save As Modal */}
       {showSaveAsModal && (

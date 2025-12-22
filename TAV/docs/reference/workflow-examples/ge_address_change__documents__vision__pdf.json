@@ -1,0 +1,359 @@
+{
+  "id": "example_ge_address_change",
+  "name": "GE Address Change (Document → Vision → Replace → PDF)",
+  "description": "Example: convert PDF to images, use a vision LLM to produce JSON replacements, then write a templated PDF output. Includes an optional WhatsApp loop to request proof of new address.",
+  "nodes": [
+    {
+      "node_id": "n_document_upload_template_pdf",
+      "node_type": "document_upload",
+      "name": "Document Upload (Template PDF)",
+      "category": "input",
+      "position": { "x": 833.2, "y": 166.3 },
+      "input_ports": [],
+      "output_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true }
+      ],
+      "config": { "file_id": "FILE_ID_TEMPLATE_PDF" },
+      "status": "idle",
+      "icon": "fa-solid fa-file-pdf",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_file_converter_template",
+      "node_type": "file_converter",
+      "name": "File Converter (PDF → Images)",
+      "category": "processing",
+      "position": { "x": 1127.3, "y": 260.5 },
+      "input_ports": [
+        { "name": "file", "type": "universal", "display_name": "Input File", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "files", "type": "universal", "display_name": "Output Files", "description": "", "required": true },
+        { "name": "first_file", "type": "universal", "display_name": "First File", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "conversion_type": "pdf_to_images",
+        "dpi": 300,
+        "image_format": "png",
+        "extract_pages": "1",
+        "file_password": ""
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-file-export",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_vision_llm_find_address_replacements",
+      "node_type": "vision_llm",
+      "name": "Vision LLM (Find Address Replacements)",
+      "category": "ai",
+      "position": { "x": 1392.6, "y": 383.9 },
+      "input_ports": [
+        { "name": "images", "type": "universal", "display_name": "Image(s)", "description": "", "required": true },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "text", "display_name": "Response", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "anthropic",
+        "llm_model": "VISION_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Return JSON only: {\"replacements\":[{\"old\":\"...\",\"new\":\"...\"}]}",
+        "user_prompt": "Find the old address in the form and the new address from the update section. Output JSON replacements. Ensure \"old\" matches exactly.",
+        "detail_level": "auto",
+        "batch_size": 0,
+        "combine_responses": true,
+        "timeout_seconds": 180
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-eye",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_json_parser_replacements",
+      "node_type": "json_parser",
+      "name": "JSON Parser (Replacements)",
+      "category": "processing",
+      "position": { "x": 1678.8, "y": 385.0 },
+      "input_ports": [
+        { "name": "text", "type": "text", "display_name": "JSON Text", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "data", "type": "universal", "display_name": "Parsed Data", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {},
+      "status": "idle",
+      "icon": "fa-solid fa-code",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_pdf_writer_apply_replacements",
+      "node_type": "pdf_writer",
+      "name": "PDF Writer (Apply Replacements)",
+      "category": "export",
+      "position": { "x": 1950.6, "y": 382.4 },
+      "input_ports": [
+        { "name": "data", "type": "universal", "display_name": "Data to Export", "description": "", "required": true },
+        { "name": "template", "type": "universal", "display_name": "Template PDF (Optional)", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Export Result", "description": "", "required": true },
+        { "name": "file", "type": "universal", "display_name": "File (MediaFormat)", "description": "", "required": true }
+      ],
+      "config": {
+        "export_mode": "download",
+        "output_folder": "",
+        "network_credential": "",
+        "filename": "export_{timestamp}",
+        "llm_provider": "local",
+        "llm_model": "LOCAL_MODEL",
+        "llm_temperature": 0,
+        "mode": "template",
+        "template_file": "FILE_ID_TEMPLATE_PDF",
+        "replacements": "",
+        "use_input_as_replacements": true,
+        "replacement_mode": "exact",
+        "preserve_font_size": true,
+        "override_font_size": 12,
+        "preserve_font_family": false,
+        "use_ai": false,
+        "prompt": "",
+        "title": "",
+        "page_size": "letter",
+        "font_size": 12,
+        "include_timestamp": true,
+        "content_type": "auto"
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-file-pdf",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_file_listener_inbox",
+      "node_type": "file_listener",
+      "name": "File Listener (Inbox)",
+      "category": "processing",
+      "position": { "x": 24.7, "y": 339.2 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "file", "type": "universal", "display_name": "File Reference", "description": "", "required": true },
+        { "name": "file_name", "type": "text", "display_name": "File Name", "description": "", "required": true },
+        { "name": "file_path", "type": "text", "display_name": "File Path", "description": "", "required": true }
+      ],
+      "config": {
+        "watch_folder": "\\\\SERVER\\Share\\UploadedPDFFiles",
+        "network_credential": null,
+        "file_pattern": "*",
+        "polling_interval": 5,
+        "timeout_seconds": 300,
+        "recursive": false,
+        "return_first": true,
+        "delete_after_read": false,
+        "ignore_existing": false,
+        "move_processed_files": false,
+        "processed_folder_suffix": "_processed"
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-file",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_file_converter_inbox",
+      "node_type": "file_converter",
+      "name": "File Converter (Inbox PDF → Images)",
+      "category": "processing",
+      "position": { "x": 293.0, "y": 344.9 },
+      "input_ports": [
+        { "name": "file", "type": "universal", "display_name": "Input File", "description": "", "required": true }
+      ],
+      "output_ports": [
+        { "name": "files", "type": "universal", "display_name": "Output Files", "description": "", "required": true },
+        { "name": "first_file", "type": "universal", "display_name": "First File", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "conversion_type": "pdf_to_images",
+        "dpi": 300,
+        "image_format": "png",
+        "extract_pages": "1",
+        "file_password": ""
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-file-export",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_vision_llm_extract_phone",
+      "node_type": "vision_llm",
+      "name": "Vision LLM (Extract Phone)",
+      "category": "ai",
+      "position": { "x": 511.4, "y": 561.7 },
+      "input_ports": [
+        { "name": "images", "type": "universal", "display_name": "Image(s)", "description": "", "required": true },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "response", "type": "text", "display_name": "Response", "description": "", "required": true },
+        { "name": "metadata", "type": "universal", "display_name": "Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "llm_provider": "anthropic",
+        "llm_model": "VISION_MODEL",
+        "llm_temperature": 0,
+        "system_prompt": "Return phone only.",
+        "user_prompt": "Extract the mobile phone number. Return +<countrycode><number> with no spaces.",
+        "detail_level": "auto",
+        "batch_size": 0,
+        "combine_responses": true,
+        "timeout_seconds": 180
+      },
+      "status": "idle",
+      "icon": "fa-solid fa-eye",
+      "share_output_to_variables": true,
+      "variable_name": "PhoneNumber",
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_send_request_proof",
+      "node_type": "whatsapp_send",
+      "name": "WhatsApp Send (Request Proof)",
+      "category": "communication",
+      "position": { "x": 819.7, "y": 538.0 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "message_content", "type": "universal", "display_name": "Message Content", "description": "", "required": false },
+        { "name": "media_url", "type": "universal", "display_name": "Media URL", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "result", "type": "universal", "display_name": "Send Result", "description": "", "required": true },
+        { "name": "message_sid", "type": "text", "display_name": "Message SID", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{PhoneNumber.response}}",
+        "message_mode": "custom",
+        "message_body": "Please send proof of your new address to begin the address change process.",
+        "content_sid": "",
+        "content_variables": "",
+        "include_media": false,
+        "media_url": ""
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": false,
+      "flipped": false
+    },
+    {
+      "node_id": "n_whatsapp_listener_proof_media",
+      "node_type": "whatsapp_listener",
+      "name": "WhatsApp Listener (Proof Media)",
+      "category": "communication",
+      "position": { "x": 1090.0, "y": 536.8 },
+      "input_ports": [
+        { "name": "trigger", "type": "signal", "display_name": "Trigger", "description": "", "required": false },
+        { "name": "context", "type": "universal", "display_name": "Context", "description": "", "required": false }
+      ],
+      "output_ports": [
+        { "name": "message_body", "type": "text", "display_name": "Message Text", "description": "", "required": true },
+        { "name": "media", "type": "universal", "display_name": "Media Files", "description": "", "required": true },
+        { "name": "message_metadata", "type": "universal", "display_name": "Message Metadata", "description": "", "required": true }
+      ],
+      "config": {
+        "auth_mode": "credential",
+        "credential_id": 1,
+        "account_sid": "",
+        "auth_token": "",
+        "whatsapp_from": "",
+        "to_number": "{{PhoneNumber.response}}",
+        "polling_interval": 2,
+        "timeout_seconds": 300,
+        "listen_mode": "new_only",
+        "since_minutes": 5,
+        "download_media": true
+      },
+      "status": "idle",
+      "icon": "fa-brands fa-whatsapp",
+      "share_output_to_variables": false,
+      "flipped": false
+    }
+  ],
+  "connections": [
+    {
+      "connection_id": "c_template_upload_to_converter",
+      "source_node_id": "n_document_upload_template_pdf",
+      "source_port": "file",
+      "target_node_id": "n_file_converter_template",
+      "target_port": "file"
+    },
+    {
+      "connection_id": "c_converter_to_vision_replacements",
+      "source_node_id": "n_file_converter_template",
+      "source_port": "files",
+      "target_node_id": "n_vision_llm_find_address_replacements",
+      "target_port": "images"
+    },
+    {
+      "connection_id": "c_vision_to_json_parser",
+      "source_node_id": "n_vision_llm_find_address_replacements",
+      "source_port": "response",
+      "target_node_id": "n_json_parser_replacements",
+      "target_port": "text"
+    },
+    {
+      "connection_id": "c_json_to_pdf_writer",
+      "source_node_id": "n_json_parser_replacements",
+      "source_port": "data",
+      "target_node_id": "n_pdf_writer_apply_replacements",
+      "target_port": "data"
+    },
+    {
+      "connection_id": "c_inbox_listener_to_inbox_converter",
+      "source_node_id": "n_file_listener_inbox",
+      "source_port": "file",
+      "target_node_id": "n_file_converter_inbox",
+      "target_port": "file"
+    },
+    {
+      "connection_id": "c_inbox_converter_to_phone_extractor",
+      "source_node_id": "n_file_converter_inbox",
+      "source_port": "files",
+      "target_node_id": "n_vision_llm_extract_phone",
+      "target_port": "images"
+    },
+    {
+      "connection_id": "c_phone_to_whatsapp_send",
+      "source_node_id": "n_vision_llm_extract_phone",
+      "source_port": "response",
+      "target_node_id": "n_whatsapp_send_request_proof",
+      "target_port": "trigger"
+    },
+    {
+      "connection_id": "c_whatsapp_send_to_listener",
+      "source_node_id": "n_whatsapp_send_request_proof",
+      "source_port": "result",
+      "target_node_id": "n_whatsapp_listener_proof_media",
+      "target_port": "trigger"
+    }
+  ],
+  "canvas_objects": []
+}
+
+

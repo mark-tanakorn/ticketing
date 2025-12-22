@@ -34,16 +34,16 @@ python3 scripts/native/start_native.py
 python scripts/native/start_native.py --backend-port 5001 --frontend-port 3001
 ```
 
-**With auto-reload (for development):**
+**With backend auto-reload (for development):**
 ```bash
 # Enable auto-reload - backend restarts automatically on file changes
-python scripts/native/start_native.py --reload
+python scripts/native/start_native.py --backend-reload
 
 # Or with custom ports and reload
-python scripts/native/start_native.py -b 5001 -f 3001 --reload
+python scripts/native/start_native.py -b 5001 -f 3001 --backend-reload
 ```
 
-> **Note:** Auto-reload is disabled by default in native mode to prevent unexpected shutdowns. Enable it with `--reload` flag when actively developing backend code.
+> **Note:** Backend auto-reload is disabled by default in native mode to prevent unexpected shutdowns. Enable it with `--backend-reload` flag when actively developing backend code.
 
 ### Step 3: Wait for Startup (30-60 seconds)
 
@@ -197,18 +197,18 @@ npm install
 
 If your backend keeps restarting on file changes:
 
-1. **Auto-reload is enabled:** The `--reload` flag was used
+1. **Backend auto-reload is enabled:** The `--backend-reload` flag was used
    - This is expected behavior - backend restarts when code changes are detected
-   - To disable: run without `--reload` flag
+   - To disable: run without `--backend-reload` flag
 
 2. **Check for file system watchers:**
    - Some IDEs (VS Code, PyCharm) auto-save on edit
-   - Each save triggers a restart when `--reload` is enabled
-   - Disable auto-save or run without `--reload`
+   - Each save triggers a restart when `--backend-reload` is enabled
+   - Disable auto-save or run without `--backend-reload`
 
 3. **For stable operation:**
-   - Run native deployment **without** `--reload` by default
-   - Only use `--reload` when actively developing backend code
+   - Run native deployment **without** `--backend-reload` by default
+   - Only use `--backend-reload` when actively developing backend code
    - Frontend has its own auto-reload built into Next.js
 
 ## 📊 Performance

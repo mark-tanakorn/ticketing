@@ -20,19 +20,20 @@ python start_native.py --backend-port 5001 --frontend-port 3001
 python start_native.py -b 5001 -f 3001
 ```
 
-**Enable auto-reload (for development):**
+**Enable backend auto-reload (for development):**
 ```bash
-python start_native.py --reload
-# Or shorthand:
-python start_native.py -r
+python start_native.py --backend-reload
 ```
 
 ### Auto-Reload Behavior
 
-By default, **auto-reload is DISABLED** to prevent unexpected server restarts during normal operation.
+By default, **backend auto-reload is DISABLED** to prevent unexpected server restarts during normal operation.
 
-- **Without `--reload`**: Backend runs stably, requires manual restart for code changes
-- **With `--reload`**: Backend automatically restarts when Python files are modified
+- **Without `--backend-reload`**: Backend runs stably, requires manual restart for code changes
+- **With `--backend-reload`**: Backend automatically restarts when Python files are modified
+
+Note: When reload is enabled, the script excludes `app/core/nodes/custom/` from triggering reload so
+registering custom nodes doesn’t restart the backend.
 
 The frontend (Next.js) has its own built-in auto-reload that always works regardless of this flag.
 
@@ -95,9 +96,9 @@ python start_native.py -b 6000
 ### Troubleshooting
 
 **Backend keeps restarting:**
-- Check if `--reload` flag is enabled
+- Check if `--backend-reload` flag is enabled
 - Disable auto-save in your IDE
-- Run without `--reload` for stable operation
+- Run without `--backend-reload` for stable operation
 
 **Port already in use:**
 ```bash

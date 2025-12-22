@@ -1,0 +1,379 @@
+/* =============================================================================
+   TAV Engine - Centralized Theme System (Next.js + Tailwind)
+   
+   This file provides CSS variables for theming.
+   Works with Tailwind's dark mode and custom theme switching.
+   ============================================================================= */
+
+/* ========================================================================
+   COLOR PALETTE - Base colors used across all themes
+   ======================================================================== */
+:root {
+  /* Primary/Accent Colors - Improved Pastel Blue Scheme */
+  --color-primary-blue: #b3d9ff; /* Original soft pastel */
+  --color-primary-blue-hover: #9bc5f5; /* Slightly darker shade of B3D9FF */
+  --color-primary-blue-light: #d4ebff; /* Lighter shade */
+  --color-accent-blue: #b3d9ff;
+  --color-default-primary: #6bb4ff; /* 20% more saturated - more accent! */
+  --color-default-primary-hover: #5aa3f0; /* Even more saturated on hover */
+  --color-default-primary-text: #3b8fdb; /* Saturated blue for text links/accents */
+
+  /* Dark Theme Blue - Vibrant for dark mode */
+  --color-dark-primary-blue: #5b8def; /* Vibrant blue for dark theme */
+  --color-dark-primary-blue-hover: #6b9aee; /* Hover state */
+
+  /* Button Colors - Updated for better clickability */
+  --color-button-blue-light: #6bb4ff; /* More saturated pastel for default theme */
+  --color-button-blue-light-hover: #5aa3f0;
+  --color-button-blue-dark: #5b8def;
+  --color-button-blue-dark-hover: #6b9aee;
+
+  /* Success Colors (Green) - Lighter/Pastel */
+  --color-success: #6ee7b7; /* Lighter green */
+  --color-success-dark: #4ade80; /* Softer dark green */
+  --color-success-light: #86efac;
+  --color-success-bg-light: #dcfce7;
+  --color-success-text-dark: #166534;
+
+  /* Error Colors (Red) - Lighter/Pastel */
+  --color-error: #fca5a5; /* Lighter red */
+  --color-error-dark: #f87171; /* Softer dark red */
+  --color-error-light: #fecaca;
+  --color-error-darker: #ef4444; /* Softer error */
+
+  /* Warning Colors (Amber) - Lighter/Pastel */
+  --color-warning: #fcd34d; /* Lighter yellow */
+  --color-warning-dark: #fbbf24; /* Softer dark */
+  --color-warning-light: #fde68a;
+
+  /* Info Colors */
+  --color-info: #3182ce;
+  --color-info-dark: #2c5282;
+  --color-info-light: #63b3ed;
+
+  /* Neutral Grays */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-150: #e2e8f0;
+  --color-gray-200: #d1d5db;
+  --color-gray-300: #cbd5e0;
+  --color-gray-400: #a0aec0;
+  --color-gray-450: #94a3b8;
+  --color-gray-500: #718096;
+  --color-gray-600: #4a5568;
+  --color-gray-650: #475569;
+  --color-gray-700: #374151;
+  --color-gray-750: #2d3748;
+  --color-gray-800: #1a1d23;
+  --color-gray-850: #151a21;
+  --color-gray-900: #0a0e14;
+
+  /* Pure Dark Theme - True black/neutral grays */
+  --color-dark-pure-black: #0a0a0a;
+  --color-dark-darkest: #121212;
+  --color-dark-darker: #1a1a1a;
+  --color-dark-surface: #1e1e1e;
+  --color-dark-elevated: #252525;
+  --color-dark-elevated-2: #2d2d2d;
+  --color-dark-border: #3d3d3d;
+  --color-dark-hover: #333333;
+
+  /* Pure Dark Text Colors */
+  --color-dark-text-primary: #e8e8e8;
+  --color-dark-text-secondary: #b3b3b3;
+  --color-dark-text-muted: #8a8a8a;
+
+  /* Light Theme Colors */
+  --color-light-text: #1e293b;
+  --color-light-text-secondary: #475569;
+  --color-light-bg: #fbfcfd;
+}
+
+/* ========================================================================
+   LIGHT THEME (DEFAULT in light mode)
+   ======================================================================== */
+:root:not(.theme-dark):not(.theme-default) {
+  /* Backgrounds */
+  --theme-background: var(--color-light-bg);
+  --theme-surface: var(--color-gray-50);
+  --theme-surface-variant: var(--color-gray-100);
+  --theme-surface-hover: var(--color-gray-150);
+
+  /* Text Colors */
+  --theme-text: var(--color-gray-800);
+  --theme-text-secondary: var(--color-gray-600);
+  --theme-text-muted: var(--color-gray-500);
+
+  /* Borders */
+  --theme-border: var(--color-gray-300);
+
+  /* Interactive Colors */
+  --theme-primary: var(--color-info);
+  --theme-primary-hover: var(--color-info-dark);
+  --theme-accent: var(--color-accent-blue);
+  --theme-button-primary: var(--theme-primary);
+  --theme-button-primary-hover: var(--theme-primary-hover);
+
+  /* Status Colors */
+  --theme-success: #22c55e;
+  --theme-success-bg: var(--color-success-bg-light);
+  --theme-success-text: var(--color-success-text-dark);
+  --theme-success-hover: #059669;
+
+  --theme-error: var(--color-error);
+  --theme-danger: var(--color-error-darker);
+  --theme-danger-hover: var(--color-error-dark);
+  --theme-warning: var(--color-warning);
+  --theme-info: var(--color-info);
+
+  /* Component Specific */
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --bg-gradient-start: var(--color-light-bg);
+  --bg-gradient-end: var(--color-gray-100);
+}
+
+/* ========================================================================
+   DEFAULT THEME - Improved Pastel Blue Scheme (explicit selection)
+   ======================================================================== */
+.theme-default,
+[data-theme="default"] {
+  /* Backgrounds */
+  --theme-background: #f8fafc;
+  --theme-surface: var(--color-gray-150);
+  --theme-surface-variant: var(--color-gray-100);
+  --theme-surface-hover: #9bc5f5; /* Active pill - darker shade for contrast */
+  --theme-navbar: #b3d9ff; /* NavBar background - soft pastel blue */
+
+  /* Text Colors */
+  --theme-text: var(--color-light-text);
+  --theme-text-secondary: var(--color-light-text-secondary);
+  --theme-text-muted: var(--color-gray-450);
+
+  /* Borders */
+  --theme-border: var(--color-gray-200);
+
+  /* Interactive Colors - More saturated for better clickability */
+  --theme-primary: #6bb4ff; /* Buttons, sliders - 20% more saturated! */
+  --theme-primary-hover: #5aa3f0; /* Hover - even more accent */
+  --theme-primary-muted: rgba(
+    107,
+    180,
+    255,
+    0.2
+  ); /* Muted version for badges */
+  --theme-primary-text: #3b8fdb; /* Text links and accents - stronger blue */
+  --theme-accent: #b3d9ff; /* Soft pastel for non-critical accents */
+  --theme-button-primary: #6bb4ff; /* Clickable button color */
+  --theme-button-primary-hover: #5aa3f0;
+
+  /* Status Colors - Lighter/Pastel */
+  --theme-success: #22c55e; /* Lighter green */
+  --theme-success-bg: var(--color-success-bg-light);
+  --theme-success-text: var(--color-success-text-dark);
+  --theme-success-hover: #6ee7b7; /* Softer hover */
+
+  --theme-error: #fca5a5; /* Lighter red */
+  --theme-danger: #ef4444; /* Softer danger */
+  --theme-danger-hover: #f87171;
+  --theme-warning: #fcd34d; /* Lighter yellow */
+  --theme-info: #6bb4ff; /* More saturated blue for info */
+
+  /* Component Specific */
+  --card-bg: var(--color-gray-150);
+  --bg-gradient-start: #f8fafc;
+  --bg-gradient-end: var(--color-gray-100);
+}
+
+/* ========================================================================
+   DARK THEME - Pure Black (True neutral dark)
+   ======================================================================== */
+.theme-dark,
+[data-theme="dark"],
+.dark {
+  /* Backgrounds */
+  --theme-background: var(--color-dark-darkest);
+  --theme-surface: var(--color-dark-darkest);
+  --theme-surface-variant: var(--color-dark-darkest);
+  --theme-surface-hover: var(--color-dark-hover);
+  --theme-navbar: var(
+    --color-dark-darkest
+  ); /* NavBar background - same as surface in dark theme */
+
+  /* Text Colors */
+  --theme-text: var(--color-dark-text-primary);
+  --theme-text-secondary: var(--color-dark-text-secondary);
+  --theme-text-muted: var(--color-dark-text-muted);
+
+  /* Borders */
+  --theme-border: var(--color-dark-border);
+
+  /* Interactive Colors - Vibrant blues for dark mode */
+  --theme-primary: var(--color-dark-primary-blue); /* Vibrant blue */
+  --theme-primary-hover: var(--color-dark-primary-blue-hover);
+  --theme-primary-muted: rgba(91, 141, 239, 0.2);
+  --theme-accent: var(--color-dark-primary-blue);
+  --theme-button-primary: var(--color-button-blue-dark);
+  --theme-button-primary-hover: var(--color-button-blue-dark-hover);
+
+  /* Status Colors */
+  --theme-success: #22c55e;
+  --theme-success-bg: var(--color-success-dark);
+  --theme-success-text: var(--color-success-light);
+  --theme-success-hover: #059669;
+
+  --theme-error: #ef4444;
+  --theme-error-light: var(--color-error-light);
+  --theme-danger: var(--color-error-darker);
+  --theme-danger-hover: var(--color-error-dark);
+  --theme-warning: #f59e0b;
+  --theme-info: var(--theme-primary);
+
+  /* Component Specific */
+  --card-bg: var(--color-dark-darkest);
+  --bg-gradient-start: var(--color-dark-darkest);
+  --bg-gradient-end: var(--color-dark-darkest);
+}
+
+/* ========================================================================
+   CANVAS/GRID SETTINGS
+   ======================================================================== */
+:root {
+  --canvas-grid-size: 20px;
+  --canvas-grid-color: var(--theme-border);
+  --canvas-grid-opacity: 0.3;
+}
+
+/* ========================================================================
+   SEMANTIC DESIGN TOKENS
+   ======================================================================== */
+:root {
+  /* Typography */
+  --font-family-base: var(--font-plus-jakarta), "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-size-base: 14px;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Shadows - Light theme */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.15);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+
+  /* Z-index layers */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+}
+
+/* Dark theme shadow adjustments */
+.theme-dark,
+.dark {
+  --shadow-sm: 0 1px 2px rgba(255, 255, 255, 0.05);
+  --shadow-md: 0 4px 6px rgba(255, 255, 255, 0.1);
+  --shadow-lg: 0 10px 15px rgba(255, 255, 255, 0.1);
+  --shadow-xl: 0 20px 25px rgba(255, 255, 255, 0.15);
+}
+
+/* ========================================================================
+   SLEEK THEMED SCROLLBARS
+   ======================================================================== */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-text-muted) var(--theme-surface);
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--theme-surface);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--theme-text-muted);
+  border-radius: 10px;
+  border: 2px solid var(--theme-surface);
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-text-secondary);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: var(--theme-button-primary);
+}
+
+/* Dark theme scrollbar */
+.theme-dark ::-webkit-scrollbar-track,
+.dark ::-webkit-scrollbar-track {
+  background: rgba(18, 18, 18, 0.5);
+}
+
+.theme-dark ::-webkit-scrollbar-thumb,
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(18, 18, 18, 0.5);
+}
+
+.theme-dark ::-webkit-scrollbar-thumb:hover,
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ========================================================================
+   UTILITY CLASSES
+   ======================================================================== */
+.bg-surface {
+  background: var(--theme-surface);
+}
+.bg-surface-variant {
+  background: var(--theme-surface-variant);
+}
+.text-theme-primary {
+  color: var(--theme-primary);
+}
+.text-theme-secondary {
+  color: var(--theme-text-secondary);
+}
+.text-theme-muted {
+  color: var(--theme-text-muted);
+}
+.text-theme-success {
+  color: var(--theme-success);
+}
+.text-theme-error {
+  color: var(--theme-error);
+}
+.text-theme-warning {
+  color: var(--theme-warning);
+}
+.border-theme {
+  border-color: var(--theme-border);
+}

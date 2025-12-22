@@ -35,12 +35,32 @@ class NodeCodeValidator:
         'app.core.nodes.registry',
         'app.core.nodes.capabilities',
         'app.core.nodes.multimodal',
+        'app.core.nodes.safe_io',
         'app.schemas.workflow',
         'typing',
+        'dataclasses',
+        'enum',
         'logging',
         'json',
         'datetime',
+        'email',
+        'imaplib',
         'httpx',
+        'urllib.parse',
+        'urllib.request',
+        'urllib.error',
+        'uuid',
+        'hashlib',
+        'hmac',
+        'base64',
+        'decimal',
+        'zoneinfo',
+        'csv',
+        'html',
+        'collections',
+        'functools',
+        'itertools',
+        'math',
         'pathlib',
         'pydantic',
         're',
@@ -58,7 +78,7 @@ class NodeCodeValidator:
         r'\bos\.system\s*\(',
         r'\bos\.popen\s*\(',
         r'\bos\.exec',
-        r'\bopen\s*\(',  # We want to restrict direct file operations
+        r'\bopen\s*\(',  # Restrict direct file operations (use safe_io instead)
     ]
     
     def validate(self, code: str) -> Dict[str, Any]:
@@ -103,6 +123,10 @@ class NodeCodeValidator:
         # 3. Check for dangerous patterns
         pattern_errors = self._check_dangerous_patterns(code)
         errors.extend(pattern_errors)
+
+        # 3b. Block direct filesystem access patterns (use app.core.nodes.safe_io for reads)
+        fs_errors = self._check_filesystem_usage(tree)
+        errors.extend(fs_errors)
         
         # 4. Check class structure
         structure_result = self._check_class_structure(tree)
@@ -174,6 +198,53 @@ class NodeCodeValidator:
                 line_num = code[:match.start()].count('\n') + 1
                 errors.append(f"Dangerous pattern at line {line_num}: {match.group()}")
         
+        return errors
+
+    def _check_filesystem_usage(self, tree: ast.AST) -> List[str]:
+        """
+        Prevent direct filesystem access from custom node code.
+
+        Custom nodes run inside the backend process; even on "local" deployments, we should
+        avoid letting generated code read arbitrary files on disk. If file reads are needed,
+        require the safe helper: app.core.nodes.safe_io.safe_read_text / safe_read_bytes / safe_read_json.
+        """
+        errors: List[str] = []
+
+        # Detect whether pathlib is imported (then forbid common file I/O methods on Path objects)
+        pathlib_imported = False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "pathlib":
+                        pathlib_imported = True
+            elif isinstance(node, ast.ImportFrom):
+                if (node.module or "") == "pathlib":
+                    pathlib_imported = True
+
+        forbidden_path_ops = {
+            # reads (require safe_io)
+            "read_text",
+            "read_bytes",
+            "open",
+            # writes / deletes (never allowed)
+            "write_text",
+            "write_bytes",
+            "unlink",
+            "rmdir",
+            "mkdir",
+            "rename",
+            "replace",
+        }
+
+        if pathlib_imported:
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                    if node.func.attr in forbidden_path_ops:
+                        errors.append(
+                            f"Direct filesystem access via pathlib.{node.func.attr}() is not allowed. "
+                            f"Use app.core.nodes.safe_io for safe, allowlisted file reads."
+                        )
+
         return errors
     
     def _check_class_structure(self, tree: ast.AST) -> Dict[str, Any]:

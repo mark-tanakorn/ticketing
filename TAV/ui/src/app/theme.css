@@ -130,6 +130,12 @@
   --card-bg: rgba(255, 255, 255, 0.95);
   --bg-gradient-start: var(--color-light-bg);
   --bg-gradient-end: var(--color-gray-100);
+
+  /* App-wide card variables (used across pages) */
+  --theme-card-bg: var(--card-bg);
+  --theme-card-bg-secondary: var(--theme-surface-variant);
+  --theme-card-selected: var(--theme-surface-hover);
+  --theme-border-primary: var(--theme-primary);
 }
 
 /* ========================================================================
@@ -182,6 +188,12 @@
   --card-bg: var(--color-gray-150);
   --bg-gradient-start: #f8fafc;
   --bg-gradient-end: var(--color-gray-100);
+
+  /* App-wide card variables (used across pages) */
+  --theme-card-bg: #ffffff;
+  --theme-card-bg-secondary: var(--theme-surface-variant);
+  --theme-card-selected: var(--theme-surface-hover);
+  --theme-border-primary: var(--theme-primary);
 }
 
 /* ========================================================================
@@ -206,6 +218,12 @@
 
   /* Borders */
   --theme-border: var(--color-dark-border);
+
+  /* App-wide card variables (used across pages) */
+  --theme-card-bg: var(--color-dark-surface);
+  --theme-card-bg-secondary: var(--color-dark-elevated);
+  --theme-card-selected: var(--color-dark-elevated-2);
+  --theme-border-primary: var(--theme-primary);
 
   /* Interactive Colors - Vibrant blues for dark mode */
   --theme-primary: var(--color-dark-primary-blue); /* Vibrant blue */

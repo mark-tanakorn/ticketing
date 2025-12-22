@@ -148,7 +148,7 @@ VERSION=1.0.0
 """
     
     try:
-        with open(backend_env, 'w') as f:
+        with open(backend_env, 'w', encoding='utf-8') as f:
             f.write(env_content)
         print_colored(f"✅ Created minimal .env in backend (static settings only)", Colors.GREEN)
     except Exception as e:
@@ -256,7 +256,7 @@ def check_and_install_missing_packages(venv_python, backend_dir):
         return False
 
 
-def start_backend(project_root, local_ip, backend_port=DEFAULT_BACKEND_PORT, frontend_port=DEFAULT_FRONTEND_PORT):
+def start_backend(project_root, local_ip, backend_port=DEFAULT_BACKEND_PORT, frontend_port=DEFAULT_FRONTEND_PORT, backend_reload: bool = False):
     """Start the backend server"""
     backend_dir = project_root / "backend"
     print_colored(f"🔧 Starting backend from: {backend_dir}", Colors.BLUE)
@@ -320,8 +320,29 @@ def start_backend(project_root, local_ip, backend_port=DEFAULT_BACKEND_PORT, fro
     print_colored(f"✅ Backend starting on http://0.0.0.0:{backend_port}", Colors.GREEN)
     print_colored(f"   CORS enabled for: {local_ip}", Colors.BLUE)
     print_colored("   🔄 BASE_URL will auto-detect (no .env needed)", Colors.BLUE)
+    cmd = [str(venv_python), "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", str(backend_port)]
+    if backend_reload:
+        cmd.append("--reload")
+        # IMPORTANT: In native mode we hot-reload custom nodes by writing to
+        # `app/core/nodes/custom/*.py` and calling NodeReloader. We MUST NOT let
+        # uvicorn/watchfiles reload the whole backend on those writes (it can look like a shutdown).
+        #
+        # The most reliable fix across uvicorn versions on Windows is to *only watch*
+        # specific backend source folders and exclude `app/core/nodes/` entirely.
+        reload_dirs = [
+            "app/api",
+            "app/services",
+            "app/core/ai",
+            "app/core/config",
+            "app/core/execution",
+            "app/database",
+            "app/utils",
+        ]
+        for d in reload_dirs:
+            cmd.extend(["--reload-dir", d])
+
     backend_process = subprocess.Popen(
-        [str(venv_python), "-m", "uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", str(backend_port)],
+        cmd,
         cwd=backend_dir,
         env=env,
         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
@@ -437,6 +458,11 @@ Examples:
         default=DEFAULT_FRONTEND_PORT,
         help=f"Frontend port (default: {DEFAULT_FRONTEND_PORT})"
     )
+    parser.add_argument(
+        "--backend-reload",
+        action="store_true",
+        help="Enable uvicorn auto-reload for backend (NOT recommended for deployments; may restart/shutdown on file changes)"
+    )
     return parser.parse_args()
 
 
@@ -519,7 +545,7 @@ def main():
     
     try:
         # Start backend
-        backend_process = start_backend(project_root, local_ip, backend_port, frontend_port)
+        backend_process = start_backend(project_root, local_ip, backend_port, frontend_port, backend_reload=args.backend_reload)
         time.sleep(3)  # Give backend time to start
         
         # Start frontend with backend URL
@@ -554,11 +580,35 @@ def main():
         print()
         
         # Keep script running
+        backend_restart_count = 0
+        last_backend_restart_ts = 0.0
         while True:
             time.sleep(1)
             
             # Check if processes are still running
             if backend_process.poll() is not None:
+                if args.backend_reload:
+                    # In reload mode, the backend process may exit on restart/crash; auto-restart it
+                    now = time.time()
+                    # Basic backoff/limit: if it keeps crashing repeatedly, bail out
+                    if now - last_backend_restart_ts < 10:
+                        backend_restart_count += 1
+                    else:
+                        backend_restart_count = 1
+                    last_backend_restart_ts = now
+
+                    if backend_restart_count > 5:
+                        print_colored("❌ Backend keeps stopping repeatedly (reload mode). Giving up.", Colors.RED)
+                        break
+
+                    print_colored("🔄 Backend exited (reload mode). Restarting backend...", Colors.YELLOW)
+                    try:
+                        backend_process = start_backend(project_root, local_ip, backend_port, frontend_port, backend_reload=args.backend_reload)
+                        continue
+                    except Exception as e:
+                        print_colored(f"❌ Failed to restart backend: {e}", Colors.RED)
+                        break
+
                 print_colored("❌ Backend stopped unexpectedly!", Colors.RED)
                 break
             if frontend_process.poll() is not None:
