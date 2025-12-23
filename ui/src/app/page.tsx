@@ -194,6 +194,9 @@ export default function Home() {
   const [creatingTicket, setCreatingTicket] = useState(false);
   const [settings, setSettings] = useState<Record<string, any>>({});
 
+  // State for current template to prevent deletion
+  const [currentTemplate, setCurrentTemplate] = useState("");
+
   // Check if create form is valid (all fields except attachment_upload must be filled)
   const isCreateFormValid = useMemo(() => {
     return (
@@ -411,6 +414,10 @@ export default function Home() {
         [name]: files[0]?.name || "",
       });
     } else {
+      // Prevent deletion of template text in description
+      if (name === "description" && currentTemplate && !value.startsWith(currentTemplate)) {
+        return; // Ignore the change if it would delete the template
+      }
       setFormData({
         ...formData,
         [name]: value,
@@ -526,6 +533,7 @@ export default function Home() {
           assigned_to: "",
           attachment_upload: "",
         });
+        setCurrentTemplate(""); // Reset template
         // Refresh tickets data
         fetch("http://localhost:8000/tickets")
           .then((res) => res.json())
@@ -1339,10 +1347,11 @@ export default function Home() {
                       if (!categoryValue) {
                         // Clear description when category is deselected
                         newFormData.description = "";
+                        setCurrentTemplate("");
                       } else {
                         const templates = {
                           Network:
-                            "Network Issue Type:\nAffected Devices:\nFrom which IP address to which IP address:\nAdditional Information:",
+                            "Network Issue Type:\nAffected Devices:\nIP Address Range:\nAdditional Information:",
                           Storage:
                             "Storage Issue Type:\nStorage System Name or Volume Name:\nAffected Servers or Applications:\nAdditional Information:",
                           System:
@@ -1371,6 +1380,7 @@ export default function Home() {
                             startsWithSystem
                           ) {
                             newFormData.description = template;
+                            setCurrentTemplate(template);
                           }
                         }
                       }
