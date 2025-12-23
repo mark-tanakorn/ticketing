@@ -108,7 +108,9 @@ const CustomLegend = ({
 // SLA calculation function to determine time left or breach status
 const getSLATimeLeft = (ticket: Ticket, settings: Record<string, any>) => {
   // Use the stored sla_breached_at from database (consistent with backend)
-  const breachDate = ticket.sla_breached_at ? new Date(ticket.sla_breached_at) : null;
+  const breachDate = ticket.sla_breached_at
+    ? new Date(ticket.sla_breached_at)
+    : null;
 
   if (!breachDate) {
     return {
@@ -152,7 +154,6 @@ export default function Home() {
   }>({ column: null, direction: "asc" });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [modalMode, setModalMode] = useState<"details" | "edit">("details");
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [fixers, setFixers] = useState<Fixer[]>([]);
@@ -202,7 +203,7 @@ export default function Home() {
       formData.department !== "" &&
       formData.approval_tier !== "" &&
       formData.assigned_to.trim() !== "" &&
-      formData.description.trim() !== ""
+      (formData.category === "" || formData.description.trim() !== "")
     );
   }, [formData]);
 
@@ -410,28 +411,10 @@ export default function Home() {
         [name]: files[0]?.name || "",
       });
     } else {
-      let newFormData = {
+      setFormData({
         ...formData,
         [name]: value,
-      };
-
-      // Reset approval_tier if department is cleared
-      if (name === "department" && !value) {
-        newFormData.approval_tier = "";
-        setUsers([]);
-      } else if (name === "department" && value) {
-        // Reset approval_tier when department changes
-        newFormData.approval_tier = "";
-        // Fetch users for the selected department
-        fetch(`http://localhost:8000/users/${value}`)
-          .then((res) => res.json())
-          .then((data) => {
-            setUsers(data.users || []);
-          })
-          .catch((err) => console.error("Error fetching users:", err));
-      }
-
-      setFormData(newFormData);
+      });
     }
   };
 
@@ -455,7 +438,6 @@ export default function Home() {
   // Handle row click to open edit modal and populate form data
   const handleRowClick = (ticket: Ticket) => {
     setSelectedTicket(ticket);
-    setModalMode("details");
 
     // Start with basic fields
     let initialFormData = {
@@ -521,7 +503,7 @@ export default function Home() {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (creatingTicket) return; // Prevent multiple submissions
-    
+
     setCreatingTicket(true);
     try {
       const response = await fetch("http://localhost:8000/tickets", {
@@ -1334,82 +1316,268 @@ export default function Home() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category
                   </label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Category</option>
-                    <option value="Network">Network</option>
-                    <option value="Hardware">Hardware</option>
-                    <option value="Access">Access</option>
-                    <option value="Software">Software</option>
-                  </select>
+                  <Select
+                    options={[
+                      { value: "", label: "Select Category" },
+                      { value: "Network", label: "Network" },
+                      { value: "Storage", label: "Storage" },
+                      { value: "System", label: "System" },
+                    ]}
+                    value={
+                      formData.category
+                        ? { value: formData.category, label: formData.category }
+                        : null
+                    }
+                    onChange={(selected) => {
+                      const categoryValue = selected ? selected.value : "";
+                      let newFormData = {
+                        ...formData,
+                        category: categoryValue,
+                      };
+
+                      // Auto-fill description template based on category
+                      if (!categoryValue) {
+                        // Clear description when category is deselected
+                        newFormData.description = "";
+                      } else {
+                        const templates = {
+                          Network:
+                            "Network Issue Type:\nAffected Devices:\nFrom which IP address to which IP address:\nAdditional Information:",
+                          Storage:
+                            "Storage Issue Type:\nStorage System Name or Volume Name:\nAffected Servers or Applications:\nAdditional Information:",
+                          System:
+                            "System Issue Type:\nHostname or Asset ID:\nOperating System Version:\nNumber of Users Affected:\nAdditional Information:",
+                        };
+
+                        const template =
+                          templates[categoryValue as keyof typeof templates];
+                        if (template) {
+                          // Check if current description is empty or starts with any template prefix
+                          const isEmpty = !formData.description.trim();
+                          const startsWithNetwork = formData.description
+                            .trim()
+                            .startsWith("Network Issue Type:");
+                          const startsWithStorage = formData.description
+                            .trim()
+                            .startsWith("Storage Issue Type:");
+                          const startsWithSystem = formData.description
+                            .trim()
+                            .startsWith("System Issue Type:");
+
+                          if (
+                            isEmpty ||
+                            startsWithNetwork ||
+                            startsWithStorage ||
+                            startsWithSystem
+                          ) {
+                            newFormData.description = template;
+                          }
+                        }
+                      }
+
+                      setFormData(newFormData);
+                    }}
+                    placeholder="Select Category"
+                    maxMenuHeight={120}
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        border: "1px solid #d1d5db",
+                        borderRadius: "0.375rem",
+                        padding: "0.125rem",
+                        fontSize: "0.875rem",
+                        minHeight: "2.5rem",
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        fontSize: "0.875rem",
+                      }),
+                    }}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Severity
                   </label>
-                  <select
-                    name="severity"
-                    value={formData.severity}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="critical">Critical</option>
-                  </select>
+                  <Select
+                    options={[
+                      { value: "low", label: "Low" },
+                      { value: "medium", label: "Medium" },
+                      { value: "high", label: "High" },
+                      { value: "critical", label: "Critical" },
+                    ]}
+                    value={
+                      formData.severity
+                        ? {
+                            value: formData.severity,
+                            label:
+                              formData.severity.charAt(0).toUpperCase() +
+                              formData.severity.slice(1),
+                          }
+                        : null
+                    }
+                    onChange={(selected) =>
+                      setFormData({
+                        ...formData,
+                        severity: selected ? selected.value : "low",
+                      })
+                    }
+                    placeholder="Select Severity"
+                    maxMenuHeight={120}
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        border: "1px solid #d1d5db",
+                        borderRadius: "0.375rem",
+                        padding: "0.125rem",
+                        fontSize: "0.875rem",
+                        minHeight: "2.5rem",
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        fontSize: "0.875rem",
+                      }),
+                    }}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Department
                   </label>
-                  <select
-                    name="department"
-                    value={formData.department || ""}
-                    onChange={handleFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select Department</option>
-                    <option value="IT">IT</option>
-                    <option value="HR">HR</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Operations">Operations</option>
-                    <option value="Legal">Legal</option>
-                    <option value="Marketing">Marketing</option>
-                  </select>
+                  <Select
+                    options={[
+                      { value: "", label: "Select Department" },
+                      { value: "IT", label: "IT" },
+                      { value: "HR", label: "HR" },
+                      { value: "Finance", label: "Finance" },
+                      { value: "Operations", label: "Operations" },
+                      { value: "Legal", label: "Legal" },
+                      { value: "Marketing", label: "Marketing" },
+                    ]}
+                    value={
+                      formData.department
+                        ? {
+                            value: formData.department,
+                            label: formData.department,
+                          }
+                        : null
+                    }
+                    onChange={(selected) => {
+                      const departmentValue = selected ? selected.value : "";
+                      let newFormData = {
+                        ...formData,
+                        department: departmentValue,
+                      };
+
+                      // Reset approval_tier if department is cleared
+                      if (!departmentValue) {
+                        newFormData.approval_tier = "";
+                        setUsers([]);
+                      } else if (departmentValue) {
+                        // Reset approval_tier when department changes
+                        newFormData.approval_tier = "";
+                        // Fetch users for the selected department
+                        fetch(`http://localhost:8000/users/${departmentValue}`)
+                          .then((res) => res.json())
+                          .then((data) => {
+                            setUsers(data.users || []);
+                          })
+                          .catch((err) =>
+                            console.error("Error fetching users:", err)
+                          );
+                      }
+
+                      setFormData(newFormData);
+                    }}
+                    placeholder="Select Department"
+                    maxMenuHeight={120}
+                    styles={{
+                      control: (provided) => ({
+                        ...provided,
+                        border: "1px solid #d1d5db",
+                        borderRadius: "0.375rem",
+                        padding: "0.125rem",
+                        fontSize: "0.875rem",
+                        minHeight: "2.5rem",
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        fontSize: "0.875rem",
+                      }),
+                    }}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Seek Approval From
                   </label>
-                  <select
-                    name="approval_tier"
-                    value={formData.approval_tier}
-                    onChange={handleFormChange}
-                    disabled={!formData.department}
-                    className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      !formData.department
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    <option value="">Select Approver</option>
-                    {users.map((user) => (
-                      <option
-                        key={user.approval_tier}
-                        value={user.approval_tier}
-                      >
-                        [Tier {user.approval_tier}] {user.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select
+                    options={[
+                      { value: "", label: "Select Approver" },
+                      ...users.map((user) => ({
+                        value: user.approval_tier.toString(),
+                        label: `[Tier ${user.approval_tier}] ${user.name}`,
+                      })),
+                    ]}
+                    value={
+                      formData.approval_tier
+                        ? (() => {
+                            const user = users.find(
+                              (u) =>
+                                u.approval_tier.toString() ===
+                                formData.approval_tier
+                            );
+                            return user
+                              ? {
+                                  value: formData.approval_tier,
+                                  label: `[Tier ${user.approval_tier}] ${user.name}`,
+                                }
+                              : null;
+                          })()
+                        : null
+                    }
+                    onChange={(selected) =>
+                      setFormData({
+                        ...formData,
+                        approval_tier: selected ? selected.value : "",
+                      })
+                    }
+                    placeholder="Select Approver"
+                    isDisabled={!formData.department}
+                    maxMenuHeight={120}
+                    styles={{
+                      control: (provided, state) => ({
+                        ...provided,
+                        border: "1px solid #d1d5db",
+                        borderRadius: "0.375rem",
+                        padding: "0.125rem",
+                        fontSize: "0.875rem",
+                        minHeight: "2.5rem",
+                        backgroundColor: !formData.department
+                          ? "#f3f4f6"
+                          : "white",
+                        cursor: !formData.department
+                          ? "not-allowed"
+                          : "default",
+                        opacity: !formData.department ? 0.6 : 1,
+                      }),
+                      menu: (provided) => ({
+                        ...provided,
+                        fontSize: "0.875rem",
+                      }),
+                      singleValue: (provided) => ({
+                        ...provided,
+                        color: !formData.department ? "#9ca3af" : "inherit",
+                      }),
+                      placeholder: (provided) => ({
+                        ...provided,
+                        color: !formData.department ? "#9ca3af" : "#6b7280",
+                      }),
+                    }}
+                  />
                 </div>
 
                 <div>
@@ -1485,8 +1653,13 @@ export default function Home() {
                   name="description"
                   value={formData.description}
                   onChange={handleFormChange}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={!formData.category}
+                  rows={6}
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    !formData.category
+                      ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : ""
+                  }`}
                 />
               </div>
 
@@ -1520,410 +1693,97 @@ export default function Home() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[100vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">
-                {modalMode === "details" ? "Ticket Details" : "Edit Ticket"}
-              </h2>
+              <h2 className="text-2xl font-bold">Ticket Overview</h2>
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() =>
-                    setModalMode(modalMode === "details" ? "edit" : "details")
-                  }
-                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium transition-colors"
+                  type="submit"
+                  form="ticket-overview-form"
+                  disabled={!isEditFormValid}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    isEditFormValid
+                      ? "bg-blue-100 hover:bg-blue-200 text-blue-700"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  }`}
                 >
-                  {modalMode === "details" ? "Edit" : "Details"}
+                  Update
+                </button>
+                <button
+                  onClick={handleDeleteTicket}
+                  className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-sm font-medium transition-colors"
+                >
+                  Delete
                 </button>
                 <button
                   onClick={closeEditModal}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                  className="px-2 py-0.4 bg-gray-200 hover:bg-gray-300 text-gray-500 hover:text-gray-700 text-2xl rounded-md transition-colors"
                 >
                   ×
                 </button>
               </div>
             </div>
 
-            {modalMode === "details" ? (
-              // Details View
-              <div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Title
-                    </label>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                      {selectedTicket.title}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Category
-                    </label>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                      {selectedTicket.category || "N/A"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Severity
-                    </label>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                      {formatter(selectedTicket.severity || "low")}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status
-                    </label>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                      {formatter(selectedTicket.status || "open")}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Approver
-                    </label>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                      {selectedTicket.approver || "Not assigned"}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assigned To
-                    </label>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                      {selectedTicket.fixer || "Not assigned"}
-                    </div>
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 min-h-[100px] whitespace-pre-wrap">
-                      {selectedTicket.description || "No description provided"}
-                    </div>
-                  </div>
-
-                  {selectedTicket.attachment_upload && (
-                    <div className="md:col-span-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Attachment
-                      </label>
-                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                        {selectedTicket.attachment_upload}
-                      </div>
-                    </div>
-                  )}
+            <form id="ticket-overview-form" onSubmit={handleEditFormSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={editFormData.title}
+                    onChange={handleEditFormChange}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
 
-                {/* SLA Information Section */}
-                <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-4">
-                    {selectedTicket.status === "approval_denied"
-                      ? "Approver Remarks"
-                      : "SLA Information"}
-                  </h3>
-                  {selectedTicket.status === "approval_denied" ? (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Remarks
-                      </label>
-                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 min-h-[100px] whitespace-pre-wrap">
-                        {selectedTicket.approver_reply_text?.trim()
-                          ? selectedTicket.approver_reply_text
-                          : "No remarks provided"}
-                      </div>
-                    </div>
-                  ) : selectedTicket.status === "awaiting_approval" ? (
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Status
-                      </label>
-                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-orange-100 text-orange-800 border-orange-300 text-center text-lg font-bold">
-                        Awaiting Approval
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {(selectedTicket.status === "open" ||
-                        selectedTicket.status === "in_progress") && (
-                        <>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Approved At
-                            </label>
-                            <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                              {selectedTicket.approver_decided_at
-                                ? (() => {
-                                    const date = new Date(
-                                      selectedTicket.approver_decided_at
-                                    );
-                                    return `${date.toLocaleDateString("en-GB", {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "2-digit",
-                                    })} ${date.toLocaleTimeString("en-GB", {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                      hour12: false,
-                                    })}`;
-                                  })()
-                                : "N/A"}
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              SLA Target
-                            </label>
-                            <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                              {(() => {
-                                // For approved tickets, show the original agreed SLA hours
-                                if (selectedTicket.sla_start_time && selectedTicket.sla_breached_at) {
-                                  const startTime = new Date(selectedTicket.sla_start_time);
-                                  const breachTime = new Date(selectedTicket.sla_breached_at);
-                                  const agreedHours = Math.round((breachTime.getTime() - startTime.getTime()) / (1000 * 60 * 60));
-                                  return `${agreedHours} hours`;
-                                }
-                                
-                                // For tickets awaiting approval or without SLA, show current policy
-                                const severity = selectedTicket.severity.toLowerCase();
-                                const slaHours = {
-                                  low: settings["SLA_LOW_HOURS"]?.value || 72,
-                                  medium: settings["SLA_MEDIUM_HOURS"]?.value || 48,
-                                  high: settings["SLA_HIGH_HOURS"]?.value || 24,
-                                  critical: settings["SLA_CRITICAL_HOURS"]?.value || 4,
-                                };
-                                return `${slaHours[severity as keyof typeof slaHours] || 72} hours`;
-                              })()}
-                            </div>
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              SLA Deadline
-                            </label>
-                            <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-                              {selectedTicket.sla_breached_at
-                                ? (() => {
-                                    const date = new Date(
-                                      selectedTicket.sla_breached_at
-                                    );
-                                    return `${date.toLocaleDateString("en-GB", {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "2-digit",
-                                    })} ${date.toLocaleTimeString("en-GB", {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                      hour12: false,
-                                    })}`;
-                                  })()
-                                : "N/A"}
-                            </div>
-                          </div>
-                        </>
-                      )}
-
-                      <div className="md:col-span-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {selectedTicket.status === "closed"
-                            ? "Status"
-                            : "Time Left Until SLA Breach"}
-                        </label>
-                        <div
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-bold ${
-                            selectedTicket.status === "closed"
-                              ? "bg-green-100 text-green-800 border-green-300"
-                              : selectedTicket.status === "sla_breached"
-                              ? "bg-red-100 text-red-800 border-red-300"
-                              : "bg-gray-50 text-gray-700"
-                          }`}
-                        >
-                          {selectedTicket.status === "closed"
-                            ? "Closed"
-                            : selectedTicket.status === "sla_breached"
-                            ? "SLA Breached"
-                            : getSLATimeLeft(selectedTicket, settings).timeLeft}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              // Edit Form View
-              <form onSubmit={handleEditFormSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      value={editFormData.title}
-                      onChange={handleEditFormChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Category
-                    </label>
-                    <select
-                      name="category"
-                      value={editFormData.category}
-                      onChange={handleEditFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Category</option>
-                      <option value="Network">Network</option>
-                      <option value="Hardware">Hardware</option>
-                      <option value="Access">Access</option>
-                      <option value="Software">Software</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Severity
-                    </label>
-                    <select
-                      name="severity"
-                      value={editFormData.severity}
-                      onChange={handleEditFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                      <option value="critical">Critical</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Department
-                    </label>
-                    <select
-                      name="department"
-                      value={editFormData.department || ""}
-                      onChange={handleEditFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Department</option>
-                      <option value="IT">IT</option>
-                      <option value="HR">HR</option>
-                      <option value="Finance">Finance</option>
-                      <option value="Operations">Operations</option>
-                      <option value="Legal">Legal</option>
-                      <option value="Marketing">Marketing</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Seek Approval From
-                    </label>
-                    <select
-                      name="approval_tier"
-                      value={editFormData.approval_tier}
-                      onChange={handleEditFormChange}
-                      disabled={!editFormData.department}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        !editFormData.department
-                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                          : ""
-                      }`}
-                    >
-                      <option value="">Select Approver</option>
-                      {editUsers.map((user) => (
-                        <option
-                          key={user.approval_tier}
-                          value={user.approval_tier}
-                        >
-                          [Tier {user.approval_tier}] {user.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assign To
-                    </label>
-                    <Select
-                      options={fixerOptions}
-                      value={fixerOptions.find(
-                        (o) => o.value === editFormData.assigned_to
-                      )}
-                      onChange={(selected) =>
-                        setEditFormData({
-                          ...editFormData,
-                          assigned_to: selected ? selected.value : "",
-                        })
-                      }
-                      placeholder="Select Fixer"
-                      maxMenuHeight={120}
-                      styles={{
-                        control: (provided) => ({
-                          ...provided,
-                          border: "1px solid #d1d5db",
-                          borderRadius: "0.375rem",
-                          padding: "0.125rem",
-                          fontSize: "0.875rem",
-                          minHeight: "2.5rem",
-                        }),
-                        menu: (provided) => ({
-                          ...provided,
-                          fontSize: "0.875rem",
-                        }),
-                      }}
-                    />
-                  </div>
-
-                  <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Attachment Upload
-                    </label>
-                    {editFormData.attachment_upload ? (
-                      <div className="flex items-center space-x-2">
-                        <div className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 text-sm">
-                          Current: {editFormData.attachment_upload}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setEditFormData({
-                              ...editFormData,
-                              attachment_upload: "",
-                            })
-                          }
-                          className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
-                          title="Remove attachment"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ) : (
-                      <input
-                        type="file"
-                        name="attachment_upload"
-                        onChange={handleEditFormChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                    {selectedTicket.category || "N/A"}
                   </div>
                 </div>
 
-                <div className="mt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Severity
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                    {formatter(selectedTicket.severity || "low")}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                    {formatter(selectedTicket.status || "open")}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Approver
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                    {selectedTicket.approver || "Not assigned"}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Assigned To
+                  </label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                    {selectedTicket.fixer || "Not assigned"}
+                  </div>
+                </div>
+
+                <div className="md:col-span-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Description
                   </label>
@@ -1931,42 +1791,174 @@ export default function Home() {
                     name="description"
                     value={editFormData.description}
                     onChange={handleEditFormChange}
-                    rows={4}
+                    rows={6}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
-                <div className="flex justify-between space-x-4 mt-6">
-                  <button
-                    type="button"
-                    onClick={handleDeleteTicket}
-                    className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                  >
-                    Delete Ticket
-                  </button>
-                  <div className="flex space-x-4">
-                    <button
-                      type="button"
-                      onClick={closeEditModal}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!isEditFormValid}
-                      className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isEditFormValid
-                          ? "bg-blue-600 text-white hover:bg-blue-700"
-                          : "bg-gray-400 text-gray-200 cursor-not-allowed"
-                      }`}
-                    >
-                      Update Ticket
-                    </button>
+                {selectedTicket.attachment_upload && (
+                  <div className="md:col-span-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Attachment
+                    </label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                      {selectedTicket.attachment_upload}
+                    </div>
                   </div>
-                </div>
-              </form>
-            )}
+                )}
+              </div>
+
+              {/* SLA Information Section */}
+              <div className="border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4">
+                  {selectedTicket.status === "approval_denied"
+                    ? "Approver Remarks"
+                    : "SLA Information"}
+                </h3>
+                {selectedTicket.status === "approval_denied" ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Remarks
+                    </label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 min-h-[100px] whitespace-pre-wrap">
+                      {selectedTicket.approver_reply_text?.trim()
+                        ? selectedTicket.approver_reply_text
+                        : "No remarks provided"}
+                    </div>
+                  </div>
+                ) : selectedTicket.status === "awaiting_approval" ? (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-orange-100 text-orange-800 border-orange-300 text-center text-lg font-bold">
+                      Awaiting Approval
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {(selectedTicket.status === "open" ||
+                      selectedTicket.status === "in_progress") && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Approved At
+                          </label>
+                          <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                            {selectedTicket.approver_decided_at
+                              ? (() => {
+                                  const date = new Date(
+                                    selectedTicket.approver_decided_at
+                                  );
+                                  return `${date.toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "2-digit",
+                                  })} ${date.toLocaleTimeString("en-GB", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: false,
+                                  })}`;
+                                })()
+                              : "N/A"}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            SLA Target
+                          </label>
+                          <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                            {(() => {
+                              // For approved tickets, show the original agreed SLA hours
+                              if (
+                                selectedTicket.sla_start_time &&
+                                selectedTicket.sla_breached_at
+                              ) {
+                                const startTime = new Date(
+                                  selectedTicket.sla_start_time
+                                );
+                                const breachTime = new Date(
+                                  selectedTicket.sla_breached_at
+                                );
+                                const agreedHours = Math.round(
+                                  (breachTime.getTime() - startTime.getTime()) /
+                                    (1000 * 60 * 60)
+                                );
+                                return `${agreedHours} hours`;
+                              }
+
+                              // For tickets awaiting approval or without SLA, show current policy
+                              const severity =
+                                selectedTicket.severity.toLowerCase();
+                              const slaHours = {
+                                low: settings["SLA_LOW_HOURS"]?.value || 72,
+                                medium:
+                                  settings["SLA_MEDIUM_HOURS"]?.value || 48,
+                                high: settings["SLA_HIGH_HOURS"]?.value || 24,
+                                critical:
+                                  settings["SLA_CRITICAL_HOURS"]?.value || 4,
+                              };
+                              return `${
+                                slaHours[severity as keyof typeof slaHours] ||
+                                72
+                              } hours`;
+                            })()}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            SLA Deadline
+                          </label>
+                          <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
+                            {selectedTicket.sla_breached_at
+                              ? (() => {
+                                  const date = new Date(
+                                    selectedTicket.sla_breached_at
+                                  );
+                                  return `${date.toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "2-digit",
+                                  })} ${date.toLocaleTimeString("en-GB", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: false,
+                                  })}`;
+                                })()
+                              : "N/A"}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    <div className="md:col-span-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {selectedTicket.status === "closed"
+                          ? "Status"
+                          : "Time Left Until SLA Breach"}
+                      </label>
+                      <div
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md text-center text-lg font-bold ${
+                          selectedTicket.status === "closed"
+                            ? "bg-green-100 text-green-800 border-green-300"
+                            : selectedTicket.status === "sla_breached"
+                            ? "bg-red-100 text-red-800 border-red-300"
+                            : "bg-gray-50 text-gray-700"
+                        }`}
+                      >
+                        {selectedTicket.status === "closed"
+                          ? "Closed"
+                          : selectedTicket.status === "sla_breached"
+                          ? "SLA Breached"
+                          : getSLATimeLeft(selectedTicket, settings).timeLeft}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </form>
           </div>
         </div>
       )}
