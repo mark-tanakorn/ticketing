@@ -38,6 +38,7 @@ export default function RegisterPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Important: sends/receives cookies
         body: JSON.stringify({
           username: formData.username,
           email: formData.email,

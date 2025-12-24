@@ -1,16 +1,17 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from utils import get_db_connection
+from routes.auth import get_current_user
 
 router = APIRouter()
 
 
 # Delete a ticket
 @router.delete("/tickets/{ticket_id}")
-async def delete_ticket(ticket_id: int):
+async def delete_ticket(ticket_id: int, current_user: dict = Depends(get_current_user)):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM tickets WHERE id = %s", (ticket_id,))
+        cursor.execute("DELETE FROM tickets WHERE id = %s AND user_id = %s", (ticket_id, current_user["user_id"]))
         conn.commit()
         cursor.close()
         conn.close()

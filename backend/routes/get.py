@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 from utils import (
@@ -8,17 +8,19 @@ from utils import (
     SLA_HOURS_DICT,
     PRE_BREACH_SECONDS,
 )
+from routes.auth import get_current_user
+from routes.auth import get_current_user
 
 router = APIRouter()
 
 
 # Get all tickets and check for SLA breaches and pre-breaches
 @router.get("/tickets")
-async def get_tickets():
+async def get_tickets(current_user: dict = Depends(get_current_user)):
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT * FROM tickets ORDER BY date_created DESC")
+        cursor.execute("SELECT * FROM tickets WHERE user_id = %s ORDER BY date_created DESC", (current_user["user_id"],))
         tickets = cursor.fetchall()
         cursor.close()
         conn.close()

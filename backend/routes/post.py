@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from psycopg2.extras import RealDictCursor
 import random
 from datetime import datetime, timedelta
@@ -10,13 +10,14 @@ from utils import (
     TicketApprovalPayload,
     TicketStatusPayload,
 )
+from routes.auth import get_current_user
 
 router = APIRouter()
 
 
 # Create a new ticket
 @router.post("/tickets")
-async def create_ticket(ticket: dict):
+async def create_ticket(ticket: dict, current_user: dict = Depends(get_current_user)):
     try:
         # Generate random ID
         ticket_id = random.randint(100000, 999999)
@@ -50,11 +51,12 @@ async def create_ticket(ticket: dict):
         cursor = conn.cursor()
         cursor.execute(
             """
-            INSERT INTO tickets (id, title, description, category, severity, status, attachment_upload, date_created, approver, fixer)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO tickets (id, user_id, title, description, category, severity, status, attachment_upload, date_created, approver, fixer)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
             (
                 ticket_id,
+                current_user["user_id"],
                 ticket.get("title"),
                 ticket.get("description"),
                 ticket.get("category"),

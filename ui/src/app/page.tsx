@@ -229,7 +229,9 @@ export default function Home() {
 
   // Function to fetch tickets
   const fetchTickets = () => {
-    fetch("http://localhost:8000/tickets")
+    fetch("http://localhost:8000/tickets", {
+      credentials: 'include', // Include session cookies
+    })
       .then((res) => res.json())
       .then((data) => {
         setTickets(data.tickets || []);
@@ -543,6 +545,7 @@ export default function Home() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: 'include', // Include session cookies for authentication
         body: JSON.stringify(formData),
       });
       const data = await response.json();
@@ -560,7 +563,9 @@ export default function Home() {
         });
         setCurrentTemplate(""); // Reset template
         // Refresh tickets data
-        fetch("http://localhost:8000/tickets")
+        fetch("http://localhost:8000/tickets", {
+          credentials: 'include',
+        })
           .then((res) => res.json())
           .then((data) => {
             setTickets(data.tickets || []);
@@ -641,6 +646,7 @@ export default function Home() {
           headers: {
             "Content-Type": "application/json",
           },
+          credentials: 'include', // Include session cookies for authentication
           body: JSON.stringify({
             title: editFormData.title,
             description: editFormData.description,
@@ -656,7 +662,9 @@ export default function Home() {
       const data = await response.json();
       if (response.ok) {
         // Refresh tickets data
-        fetch("http://localhost:8000/tickets")
+        fetch("http://localhost:8000/tickets", {
+          credentials: 'include',
+        })
           .then((res) => res.json())
           .then((data) => {
             setTickets(data.tickets || []);
@@ -721,12 +729,15 @@ export default function Home() {
         `http://localhost:8000/tickets/${selectedTicket.id}`,
         {
           method: "DELETE",
+          credentials: 'include', // Include session cookies for authentication
         }
       );
       const data = await response.json();
       if (response.ok) {
         // Refresh tickets data
-        fetch("http://localhost:8000/tickets")
+        fetch("http://localhost:8000/tickets", {
+          credentials: 'include',
+        })
           .then((res) => res.json())
           .then((data) => {
             setTickets(data.tickets || []);
