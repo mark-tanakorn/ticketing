@@ -155,3 +155,57 @@ async def update_fixer(fixer_id: int, fixer: dict):
         return {"message": "Fixer updated successfully"}
     except Exception as e:
         return {"error": str(e)}
+
+
+# Update a login user
+@router.put("/login/{user_id}")
+async def update_login_user(user_id: int, user: dict):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if username already exists for another user
+        cursor.execute(
+            "SELECT user_id FROM login WHERE LOWER(username) = LOWER(%s) AND user_id != %s",
+            (user.get("name"), user_id),
+        )
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Username already exists"}
+
+        # Check if email already exists for another user
+        cursor.execute(
+            "SELECT user_id FROM login WHERE LOWER(email) = LOWER(%s) AND user_id != %s",
+            (user.get("email"), user_id),
+        )
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Email already exists"}
+
+        # If password is provided, hash it
+        update_fields = "username = %s, email = %s, role = %s"
+        values = [user.get("name"), user.get("email"), user.get("department")]
+        if user.get("password"):
+            from auth_utils import hash_password
+            hashed_password = hash_password(user.get("password"))
+            update_fields += ", password = %s"
+            values.append(hashed_password)
+
+        values.append(user_id)
+
+        cursor.execute(
+            f"""
+            UPDATE login 
+            SET {update_fields}
+            WHERE user_id = %s
+        """,
+            values,
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "User updated successfully"}
+    except Exception as e:
+        return {"error": str(e)}

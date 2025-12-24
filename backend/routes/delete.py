@@ -48,3 +48,18 @@ async def delete_fixer(fixer_id: int):
         return {"message": "Fixer deleted successfully"}
     except Exception as e:
         return {"error": str(e)}
+
+
+# Delete a login user
+@router.delete("/login/{user_id}")
+async def delete_login_user(user_id: int):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM login WHERE user_id = %s", (user_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "User deleted successfully"}
+    except Exception as e:
+        return {"error": str(e)}

@@ -248,6 +248,55 @@ async def create_fixer(fixer: dict):
         return {"error": str(e)}
 
 
+# Create a new login user
+@router.post("/login")
+async def create_login_user(user: dict):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if username already exists
+        cursor.execute(
+            "SELECT user_id FROM login WHERE LOWER(username) = LOWER(%s)", (user.get("name"),)
+        )
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Username already exists"}
+
+        # Check if email already exists
+        cursor.execute(
+            "SELECT user_id FROM login WHERE LOWER(email) = LOWER(%s)", (user.get("email"),)
+        )
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            return {"error": "Email already exists"}
+
+        # Hash password
+        from auth_utils import hash_password
+        hashed_password = hash_password(user.get("password"))
+
+        cursor.execute(
+            """
+            INSERT INTO login (username, email, password, role)
+            VALUES (%s, %s, %s, %s)
+        """,
+            (
+                user.get("name"),
+                user.get("email"),
+                hashed_password,
+                user.get("department"),
+            ),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"message": "User created successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # Update a ticket's status based on approver response
 @router.post("/tickets/{ticket_id}/approval")
 async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload):

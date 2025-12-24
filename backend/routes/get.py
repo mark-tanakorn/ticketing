@@ -199,3 +199,20 @@ async def get_all_fixers():
         return {"fixers": fixers}
     except Exception as e:
         return {"error": str(e)}
+
+
+# Get all login users
+@router.get("/login")
+async def get_all_login_users():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT user_id as id, username as name, email, role as department FROM login ORDER BY user_id"
+        )
+        login_users = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return {"login": login_users}
+    except Exception as e:
+        return {"error": str(e)}

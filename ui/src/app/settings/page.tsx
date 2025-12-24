@@ -194,6 +194,11 @@ export default function SettingsPage() {
             </a>
           </li>
           <li className="mb-2">
+            <a href="/users" className="hover:text-gray-300">
+              Users
+            </a>
+          </li>
+          <li className="mb-2">
             <a href="/settings" className="text-blue-300 font-semibold">
               Settings
             </a>

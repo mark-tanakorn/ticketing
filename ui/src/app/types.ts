@@ -28,6 +28,13 @@ export interface User {
   approval_tier: number;
 }
 
+export interface LoginUser {
+  id: number;
+  name: string;
+  email: string;
+  department: string;
+}
+
 export interface Fixer {
   id: number;
   name: string;

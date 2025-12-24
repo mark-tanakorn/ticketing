@@ -1,65 +1,60 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { User } from "../types";
+import { LoginUser } from "../types";
 
 export default function Users() {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<LoginUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<LoginUser | null>(null);
   const [formData, setFormData] = useState({
     name: "",
-    phone: "",
     email: "",
     department: "",
-    approval_tier: "1",
+    password: "",
   });
   const [editFormData, setEditFormData] = useState({
     name: "",
-    phone: "",
     email: "",
     department: "",
-    approval_tier: "1",
+    password: "",
   });
 
   // Check if create form is valid (all fields must be filled)
   const isCreateFormValid = useMemo(() => {
     return (
       formData.name.trim() !== "" &&
-      formData.phone.trim() !== "" &&
       formData.email.trim() !== "" &&
       formData.department !== "" &&
-      formData.approval_tier !== ""
+      formData.password.trim() !== ""
     );
   }, [formData]);
 
-  // Check if edit form is valid (all fields must be filled)
+  // Check if edit form is valid (name, email, department must be filled, password optional)
   const isEditFormValid = useMemo(() => {
     return (
       editFormData.name.trim() !== "" &&
-      editFormData.phone.trim() !== "" &&
       editFormData.email.trim() !== "" &&
-      editFormData.department !== "" &&
-      editFormData.approval_tier !== ""
+      editFormData.department !== ""
     );
   }, [editFormData]);
 
-  // Fetch fixers on component mount
+  // Fetch users on component mount
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  // Function to fetch fixers from backend
+  // Function to fetch users from backend
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:8000/users");
+      const response = await fetch("http://localhost:8000/login");
       const data = await response.json();
       if (response.ok) {
-        setUsers(data.users || []);
+        setUsers(data.login || []);
       } else {
         setError(data.error || "Failed to fetch users");
       }
@@ -80,7 +75,7 @@ export default function Users() {
     });
   };
 
-  // Handle form submission to create a new user
+  // Handle form submission for creating a new user
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -89,7 +84,7 @@ export default function Users() {
       (u) => u.name.toLowerCase() === formData.name.toLowerCase()
     );
     if (existingUserByName) {
-      alert("A user with this name already exists.");
+      alert("A user with this username already exists.");
       return;
     }
 
@@ -102,56 +97,46 @@ export default function Users() {
       return;
     }
 
-    // Check for duplicate phone
-    const existingUserByPhone = users.find((u) => u.phone === formData.phone);
-    if (existingUserByPhone) {
-      alert("A user with this phone number already exists.");
-      return;
-    }
-
     try {
-      const response = await fetch("http://localhost:8000/users", {
+      const response = await fetch("http://localhost:8000/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           name: formData.name,
-          phone: formData.phone,
           email: formData.email,
           department: formData.department,
-          approval_tier: parseInt(formData.approval_tier),
+          password: formData.password,
         }),
       });
       const data = await response.json();
       if (response.ok) {
         setFormData({
           name: "",
-          phone: "",
           email: "",
           department: "",
-          approval_tier: "1",
+          password: "",
         });
         // Refresh users list
         fetchUsers();
         setShowCreateModal(false);
       } else {
-        // Error handled silently
+        alert(data.error || "Failed to create user");
       }
     } catch (error) {
-      // Error handled silently
+      alert("Failed to create user");
     }
   };
 
   // Handle row click to open edit modal
-  const handleRowClick = (user: User) => {
+  const handleRowClick = (user: LoginUser) => {
     setSelectedUser(user);
     setEditFormData({
       name: user.name,
-      phone: user.phone || "",
       email: user.email,
-      department: user.department || "",
-      approval_tier: user.approval_tier.toString(),
+      department: user.department,
+      password: "",
     });
     setShowEditModal(true);
   };
@@ -178,7 +163,7 @@ export default function Users() {
         u.id !== selectedUser.id
     );
     if (existingUserByName) {
-      alert("A user with this name already exists.");
+      alert("A user with this username already exists.");
       return;
     }
 
@@ -193,30 +178,24 @@ export default function Users() {
       return;
     }
 
-    // Check for duplicate phone (excluding current user)
-    const existingUserByPhone = users.find(
-      (u) => u.phone === editFormData.phone && u.id !== selectedUser.id
-    );
-    if (existingUserByPhone) {
-      alert("A user with this phone number already exists.");
-      return;
-    }
-
     try {
+      const updateData: any = {
+        name: editFormData.name,
+        email: editFormData.email,
+        department: editFormData.department,
+      };
+      if (editFormData.password.trim() !== "") {
+        updateData.password = editFormData.password;
+      }
+
       const response = await fetch(
-        `http://localhost:8000/users/${selectedUser.id}`,
+        `http://localhost:8000/login/${selectedUser.id}`,
         {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            name: editFormData.name,
-            phone: editFormData.phone,
-            email: editFormData.email,
-            department: editFormData.department,
-            approval_tier: parseInt(editFormData.approval_tier),
-          }),
+          body: JSON.stringify(updateData),
         }
       );
       const data = await response.json();
@@ -224,14 +203,14 @@ export default function Users() {
         fetchUsers();
         setShowEditModal(false);
       } else {
-        // Error handled silently
+        alert(data.error || "Failed to update user");
       }
     } catch (error) {
-      // Error handled silently
+      alert("Failed to update user");
     }
   };
 
-  //  Handle fixer deletion
+  // Handle user deletion
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
 
@@ -241,7 +220,7 @@ export default function Users() {
 
     try {
       const response = await fetch(
-        `http://localhost:8000/users/${selectedUser.id}`,
+        `http://localhost:8000/login/${selectedUser.id}`,
         {
           method: "DELETE",
         }
@@ -251,23 +230,22 @@ export default function Users() {
         fetchUsers();
         setShowEditModal(false);
       } else {
-        // Error handled silently
+        alert(data.error || "Failed to delete user");
       }
     } catch (error) {
-      // Error handled silently
+      alert("Failed to delete user");
     }
   };
 
-  // Close edit model
+  // Close edit modal
   const closeEditModal = () => {
     setShowEditModal(false);
     setSelectedUser(null);
     setEditFormData({
       name: "",
-      phone: "",
       email: "",
       department: "",
-      approval_tier: "1",
+      password: "",
     });
   };
 
@@ -276,26 +254,25 @@ export default function Users() {
     setShowCreateModal(false);
     setFormData({
       name: "",
-      phone: "",
       email: "",
       department: "",
-      approval_tier: "1",
+      password: "",
     });
   };
 
   // Handle logout
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:8000/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
+      await fetch("http://localhost:8000/auth/logout", {
+        method: "POST",
+        credentials: "include",
       });
       // Redirect to login
-      window.location.href = '/login';
+      window.location.href = "/login";
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
       // Still redirect even if logout fails
-      window.location.href = '/login';
+      window.location.href = "/login";
     }
   };
 
@@ -325,7 +302,7 @@ export default function Users() {
             </a>
           </li>
           <li className="mb-2">
-            <a href="/approvers" className="text-blue-300 font-semibold">
+            <a href="/approvers" className="hover:text-gray-300">
               Approvers
             </a>
           </li>
@@ -335,7 +312,7 @@ export default function Users() {
             </a>
           </li>
           <li className="mb-2">
-            <a href="/users" className="hover:text-gray-300">
+            <a href="/users" className="text-blue-300 font-semibold">
               Users
             </a>
           </li>
@@ -352,13 +329,13 @@ export default function Users() {
               Logout
             </button>
           </li>
-          </ul>
+        </ul>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 p-8">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Approvers</h1>
+          <h1 className="text-3xl font-bold">Users</h1>
           <button
             onClick={() => setShowCreateModal(true)}
             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -379,9 +356,7 @@ export default function Users() {
                   <th className="px-4 py-2 text-left w-1/6">ID</th>
                   <th className="px-4 py-2 text-left w-2/6">Name</th>
                   <th className="px-4 py-2 text-left w-2/6">Email</th>
-                  <th className="px-4 py-2 text-left w-1/6">Phone</th>
-                  <th className="px-4 py-2 text-left w-1/6">Department</th>
-                  <th className="px-4 py-2 text-left w-1/6">Approval Tier</th>
+                  <th className="px-4 py-2 text-left w-1/6">Role</th>
                 </tr>
               </thead>
               <tbody>
@@ -394,13 +369,7 @@ export default function Users() {
                     <td className="px-4 py-2 truncate">{user.id}</td>
                     <td className="px-4 py-2 truncate">{user.name}</td>
                     <td className="px-4 py-2 truncate">{user.email}</td>
-                    <td className="px-4 py-2 truncate">{user.phone || "-"}</td>
-                    <td className="px-4 py-2 truncate">
-                      {user.department || "-"}
-                    </td>
-                    <td className="px-4 py-2 truncate">
-                      {user.approval_tier || "-"}
-                    </td>
+                    <td className="px-4 py-2 truncate">{user.department}</td>
                   </tr>
                 ))}
               </tbody>
@@ -426,7 +395,7 @@ export default function Users() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Name
+                      Username
                     </label>
                     <input
                       type="text"
@@ -439,19 +408,6 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Email
                     </label>
@@ -467,7 +423,7 @@ export default function Users() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Department
+                      Role
                     </label>
                     <select
                       name="department"
@@ -475,28 +431,24 @@ export default function Users() {
                       onChange={handleFormChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">Select Department</option>
-                      <option value="IT">IT</option>
-                      <option value="HR">HR</option>
-                      <option value="Finance">Finance</option>
-                      <option value="Operations">Operations</option>
+                      <option value="">Select Role</option>
+                      <option value="admin">Admin</option>
+                      <option value="user">User</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Approval Tier
+                      Password
                     </label>
-                    <select
-                      name="approval_tier"
-                      value={formData.approval_tier}
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
                       onChange={handleFormChange}
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                    </select>
+                    />
                   </div>
                 </div>
 
@@ -534,7 +486,7 @@ export default function Users() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Name
+                      Username
                     </label>
                     <input
                       type="text"
@@ -547,19 +499,6 @@ export default function Users() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      value={editFormData.phone}
-                      onChange={handleEditFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Email
                     </label>
@@ -575,7 +514,7 @@ export default function Users() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Department
+                      Role
                     </label>
                     <select
                       name="department"
@@ -583,28 +522,23 @@ export default function Users() {
                       onChange={handleEditFormChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">Select Department</option>
-                      <option value="IT">IT</option>
-                      <option value="HR">HR</option>
-                      <option value="Finance">Finance</option>
-                      <option value="Operations">Operations</option>
+                      <option value="">Select Role</option>
+                      <option value="admin">Admin</option>
+                      <option value="user">User</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Approval Tier
+                      New Password (leave blank to keep current)
                     </label>
-                    <select
-                      name="approval_tier"
-                      value={editFormData.approval_tier}
+                    <input
+                      type="password"
+                      name="password"
+                      value={editFormData.password}
                       onChange={handleEditFormChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="1">1</option>
-                      <option value="2">2</option>
-                      <option value="3">3</option>
-                    </select>
+                    />
                   </div>
                 </div>
 
