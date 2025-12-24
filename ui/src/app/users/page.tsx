@@ -236,7 +236,7 @@ export default function Users() {
         }
       );
       const data = await response.json();
-      if (response.ok) {
+      if (response.ok && !data.error) {
         fetchUsers();
         setShowEditModal(false);
       } else {

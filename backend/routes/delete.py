@@ -11,7 +11,13 @@ async def delete_ticket(ticket_id: int, current_user: dict = Depends(get_current
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM tickets WHERE id = %s AND user_id = %s", (ticket_id, current_user["user_id"]))
+        if current_user["role"] in ["admin", "auditor"]:
+            cursor.execute("DELETE FROM tickets WHERE id = %s", (ticket_id,))
+        else:
+            cursor.execute(
+                "DELETE FROM tickets WHERE id = %s AND user_id = %s",
+                (ticket_id, current_user["user_id"]),
+            )
         conn.commit()
         cursor.close()
         conn.close()
@@ -56,6 +62,28 @@ async def delete_login_user(user_id: int):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Get the role of the user being deleted
+        cursor.execute("SELECT role FROM login WHERE user_id = %s", (user_id,))
+        result = cursor.fetchone()
+        if not result:
+            cursor.close()
+            conn.close()
+            return {"error": "User not found"}
+
+        role = result[0]
+
+        if role == "admin":
+            # Count how many admins are left
+            cursor.execute("SELECT COUNT(*) FROM login WHERE role = 'admin'")
+            admin_count = cursor.fetchone()[0]
+            print(f"Admin count: {admin_count}, deleting user ID: {user_id}, role: {role}")
+            if admin_count <= 1:
+                print(f"Blocked attempt to delete the last admin user (ID: {user_id})")
+                cursor.close()
+                conn.close()
+                return {"error": "Cannot delete the last admin user"}
+
         cursor.execute("DELETE FROM login WHERE user_id = %s", (user_id,))
         conn.commit()
         cursor.close()
