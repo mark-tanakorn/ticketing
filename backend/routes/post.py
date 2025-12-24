@@ -72,6 +72,21 @@ async def create_ticket(ticket: dict, current_user: dict = Depends(get_current_u
         cursor.close()
         conn.close()
 
+        # Calculate and set SLA breach time
+        severity = ticket.get("severity", "").lower()
+        if severity in SLA_HOURS_DICT:
+            sla_hours = SLA_HOURS_DICT[severity]
+            sla_breached_at = current_time + timedelta(hours=sla_hours)
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE tickets SET sla_start_time = %s, sla_breached_at = %s WHERE id = %s",
+                (current_time, sla_breached_at, ticket_id),
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+
         # Fetch approver phone number and email from users table
         approver_phone = None
         approver_email = None
