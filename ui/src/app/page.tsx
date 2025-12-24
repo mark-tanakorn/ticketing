@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   PieChart,
   Pie,
@@ -146,6 +147,8 @@ const getSLATimeLeft = (ticket: Ticket, settings: Record<string, any>) => {
 
 // Main dashboard component
 export default function Home() {
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{
@@ -238,6 +241,28 @@ export default function Home() {
         setLoading(false);
       });
   };
+
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/auth/me', {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+          router.push('/login');
+        }
+      } catch (error) {
+        setIsAuthenticated(false);
+        router.push('/login');
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   // Fetch initial data on component mount
   useEffect(() => {
@@ -663,6 +688,22 @@ export default function Home() {
     });
   };
 
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:8000/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      // Redirect to login
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still redirect even if logout fails
+      window.location.href = '/login';
+    }
+  };
+
   // Handle ticket deletion
   const handleDeleteTicket = async () => {
     if (!selectedTicket) return;
@@ -815,6 +856,14 @@ export default function Home() {
             <a href="/settings" className="hover:text-gray-300">
               Settings
             </a>
+          </li>
+          <li className="mt-8 pt-4 border-t border-gray-600">
+            <button
+              onClick={handleLogout}
+              className="w-full text-left hover:text-gray-300 text-red-300"
+            >
+              Logout
+            </button>
           </li>
         </ul>
       </div>

@@ -141,6 +141,7 @@ def init_database_tables():
             """
             CREATE TABLE IF NOT EXISTS tickets (
                 id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES login(user_id),
                 title VARCHAR(255) NOT NULL,
                 description TEXT,
                 category VARCHAR(50),
@@ -200,6 +201,19 @@ def init_database_tables():
                 data_type VARCHAR(20) DEFAULT 'string',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """
+        )
+
+        # Create login table only if it doesn't exist
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS login (
+                user_id SERIAL PRIMARY KEY,
+                username VARCHAR(255) NOT NULL UNIQUE,
+                email VARCHAR(255) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                role VARCHAR(50) DEFAULT 'user'
             );
         """
         )
