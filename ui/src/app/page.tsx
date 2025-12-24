@@ -149,6 +149,7 @@ const getSLATimeLeft = (ticket: Ticket, settings: Record<string, any>) => {
 export default function Home() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortConfig, setSortConfig] = useState<{
@@ -252,6 +253,8 @@ export default function Home() {
           credentials: 'include',
         });
         if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
           setIsAuthenticated(true);
         } else {
           setIsAuthenticated(false);
@@ -853,26 +856,30 @@ export default function Home() {
               Dashboard
             </a>
           </li>
-          <li className="mb-2">
-            <a href="/approvers" className="hover:text-gray-300">
-              Approvers
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/engineers" className="hover:text-gray-300">
-              Engineers
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/users" className="hover:text-gray-300">
-              Users
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/settings" className="hover:text-gray-300">
-              Settings
-            </a>
-          </li>
+          {user && user.role === "admin" && (
+            <>
+              <li className="mb-2">
+                <a href="/approvers" className="hover:text-gray-300">
+                  Approvers
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/engineers" className="hover:text-gray-300">
+                  Engineers
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/users" className="hover:text-gray-300">
+                  Users
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/settings" className="hover:text-gray-300">
+                  Settings
+                </a>
+              </li>
+            </>
+          )}
           <li className="mt-8 pt-4 border-t border-gray-600">
             <button
               onClick={handleLogout}

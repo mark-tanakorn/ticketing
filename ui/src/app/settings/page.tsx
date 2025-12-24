@@ -21,8 +21,18 @@ export default function SettingsPage() {
     new Set()
   );
 
+  const [user, setUser] = useState<any>(null);
+
   useEffect(() => {
     fetchSettings();
+  }, []);
+
+  // Fetch current user
+  useEffect(() => {
+    fetch("http://localhost:8000/auth/me", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setUser(data))
+      .catch(() => setUser(null));
   }, []);
 
   const fetchSettings = async () => {
@@ -143,6 +153,11 @@ export default function SettingsPage() {
               </a>
             </li>
             <li className="mb-2">
+              <a href="/users" className="hover:text-gray-300">
+                Users
+              </a>
+            </li>
+            <li className="mb-2">
               <a href="/settings" className="text-blue-300 font-semibold">
                 Settings
               </a>
@@ -183,26 +198,30 @@ export default function SettingsPage() {
               Dashboard
             </a>
           </li>
-          <li className="mb-2">
-            <a href="/approvers" className="hover:text-gray-300">
-              Approvers
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/engineers" className="hover:text-gray-300">
-              Engineers
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/users" className="hover:text-gray-300">
-              Users
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/settings" className="text-blue-300 font-semibold">
-              Settings
-            </a>
-          </li>
+          {user && user.role === "admin" && (
+            <>
+              <li className="mb-2">
+                <a href="/approvers" className="hover:text-gray-300">
+                  Approvers
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/engineers" className="hover:text-gray-300">
+                  Engineers
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/users" className="hover:text-gray-300">
+                  Users
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/settings" className="text-blue-300 font-semibold">
+                  Settings
+                </a>
+              </li>
+            </>
+          )}
           <li className="mt-8 pt-4 border-t border-gray-600">
             <button
               onClick={handleLogout}

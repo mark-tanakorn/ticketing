@@ -25,6 +25,8 @@ export default function Users() {
     approval_tier: "1",
   });
 
+  const [user, setUser] = useState<any>(null);
+
   // Check if create form is valid (all fields must be filled)
   const isCreateFormValid = useMemo(() => {
     return (
@@ -50,6 +52,14 @@ export default function Users() {
   // Fetch fixers on component mount
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  // Fetch current user
+  useEffect(() => {
+    fetch("http://localhost:8000/auth/me", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setUser(data))
+      .catch(() => setUser(null));
   }, []);
 
   // Function to fetch fixers from backend
@@ -324,26 +334,30 @@ export default function Users() {
               Dashboard
             </a>
           </li>
-          <li className="mb-2">
-            <a href="/approvers" className="text-blue-300 font-semibold">
-              Approvers
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/engineers" className="hover:text-gray-300">
-              Engineers
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/users" className="hover:text-gray-300">
-              Users
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/settings" className="hover:text-gray-300">
-              Settings
-            </a>
-          </li>
+          {user && user.role === "admin" && (
+            <>
+              <li className="mb-2">
+                <a href="/approvers" className="text-blue-300 font-semibold">
+                  Approvers
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/engineers" className="hover:text-gray-300">
+                  Engineers
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/users" className="hover:text-gray-300">
+                  Users
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/settings" className="hover:text-gray-300">
+                  Settings
+                </a>
+              </li>
+            </>
+          )}
           <li className="mt-8 pt-4 border-t border-gray-600">
             <button
               onClick={handleLogout}

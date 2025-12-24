@@ -20,7 +20,12 @@ async def get_tickets(current_user: dict = Depends(get_current_user)):
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        cursor.execute("SELECT * FROM tickets WHERE user_id = %s ORDER BY date_created DESC", (current_user["user_id"],))
+        
+        if current_user["role"] in ["admin", "auditor"]:
+            cursor.execute("SELECT * FROM tickets ORDER BY date_created DESC")
+        else:
+            cursor.execute("SELECT * FROM tickets WHERE user_id = %s ORDER BY date_created DESC", (current_user["user_id"],))
+        
         tickets = cursor.fetchall()
         cursor.close()
         conn.close()

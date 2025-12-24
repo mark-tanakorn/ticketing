@@ -23,6 +23,8 @@ export default function Users() {
     password: "",
   });
 
+  const [user, setUser] = useState<any>(null);
+
   // Check if create form is valid (all fields must be filled)
   const isCreateFormValid = useMemo(() => {
     return (
@@ -45,6 +47,14 @@ export default function Users() {
   // Fetch users on component mount
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  // Fetch current user
+  useEffect(() => {
+    fetch("http://localhost:8000/auth/me", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setUser(data))
+      .catch(() => setUser(null));
   }, []);
 
   // Function to fetch users from backend
@@ -301,26 +311,30 @@ export default function Users() {
               Dashboard
             </a>
           </li>
-          <li className="mb-2">
-            <a href="/approvers" className="hover:text-gray-300">
-              Approvers
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/engineers" className="hover:text-gray-300">
-              Engineers
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/users" className="text-blue-300 font-semibold">
-              Users
-            </a>
-          </li>
-          <li className="mb-2">
-            <a href="/settings" className="hover:text-gray-300">
-              Settings
-            </a>
-          </li>
+          {user && user.role === "admin" && (
+            <>
+              <li className="mb-2">
+                <a href="/approvers" className="hover:text-gray-300">
+                  Approvers
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/engineers" className="hover:text-gray-300">
+                  Engineers
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/users" className="text-blue-300 font-semibold">
+                  Users
+                </a>
+              </li>
+              <li className="mb-2">
+                <a href="/settings" className="hover:text-gray-300">
+                  Settings
+                </a>
+              </li>
+            </>
+          )}
           <li className="mt-8 pt-4 border-t border-gray-600">
             <button
               onClick={handleLogout}
@@ -434,6 +448,7 @@ export default function Users() {
                       <option value="">Select Role</option>
                       <option value="admin">Admin</option>
                       <option value="user">User</option>
+                      <option value="auditor">Auditor</option>
                     </select>
                   </div>
 
@@ -525,6 +540,7 @@ export default function Users() {
                       <option value="">Select Role</option>
                       <option value="admin">Admin</option>
                       <option value="user">User</option>
+                      <option value="auditor">Auditor</option>
                     </select>
                   </div>
 
