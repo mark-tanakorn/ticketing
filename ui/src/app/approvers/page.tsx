@@ -283,6 +283,22 @@ export default function Users() {
     });
   };
 
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await fetch('http://localhost:8000/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      // Redirect to login
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still redirect even if logout fails
+      window.location.href = '/login';
+    }
+  };
+
   // Render loading, error, and main content
   if (loading)
     return (
@@ -309,12 +325,12 @@ export default function Users() {
             </a>
           </li>
           <li className="mb-2">
-            <a href="/users" className="text-blue-300 font-semibold">
+            <a href="/approvers" className="text-blue-300 font-semibold">
               Approvers
             </a>
           </li>
           <li className="mb-2">
-            <a href="/fixers" className="hover:text-gray-300">
+            <a href="/engineers" className="hover:text-gray-300">
               Engineers
             </a>
           </li>
@@ -323,7 +339,15 @@ export default function Users() {
               Settings
             </a>
           </li>
-        </ul>
+          <li className="mt-8 pt-4 border-t border-gray-600">
+            <button
+              onClick={handleLogout}
+              className="w-full text-left hover:text-gray-300 text-red-300"
+            >
+              Logout
+            </button>
+          </li>
+          </ul>
       </div>
 
       {/* Main Content */}

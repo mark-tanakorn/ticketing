@@ -854,12 +854,12 @@ export default function Home() {
             </a>
           </li>
           <li className="mb-2">
-            <a href="/users" className="hover:text-gray-300">
+            <a href="/approvers" className="hover:text-gray-300">
               Approvers
             </a>
           </li>
           <li className="mb-2">
-            <a href="/fixers" className="hover:text-gray-300">
+            <a href="/engineers" className="hover:text-gray-300">
               Engineers
             </a>
           </li>

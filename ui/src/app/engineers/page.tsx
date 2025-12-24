@@ -273,6 +273,22 @@ export default function Fixers() {
     });
   };
 
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:8000/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+      // Redirect to login
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Still redirect even if logout fails
+      window.location.href = "/login";
+    }
+  };
+
   // Render loading, error, and main content
   if (loading)
     return (
@@ -299,12 +315,12 @@ export default function Fixers() {
             </a>
           </li>
           <li className="mb-2">
-            <a href="/users" className="hover:text-gray-300">
+            <a href="/approvers" className="hover:text-gray-300">
               Approvers
             </a>
           </li>
           <li className="mb-2">
-            <a href="/fixers" className="text-blue-300 font-semibold">
+            <a href="/engineers" className="text-blue-300 font-semibold">
               Engineers
             </a>
           </li>
@@ -312,6 +328,14 @@ export default function Fixers() {
             <a href="/settings" className="hover:text-gray-300">
               Settings
             </a>
+          </li>
+          <li className="mt-8 pt-4 border-t border-gray-600">
+            <button
+              onClick={handleLogout}
+              className="w-full text-left hover:text-gray-300 text-red-300"
+            >
+              Logout
+            </button>
           </li>
         </ul>
       </div>
