@@ -74,8 +74,9 @@ async def create_ticket(ticket: dict, current_user: dict = Depends(get_current_u
 
         # Calculate and set SLA breach time
         severity = ticket.get("severity", "").lower()
-        if severity in SLA_HOURS_DICT:
-            sla_hours = SLA_HOURS_DICT[severity]
+        if severity:
+            from routes.settings import get_setting
+            sla_hours = float(get_setting(f"SLA_{severity.upper()}_HOURS", 72 if severity == "low" else 48 if severity == "medium" else 24 if severity == "high" else 4))
             sla_breached_at = current_time + timedelta(hours=sla_hours)
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -347,7 +348,8 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
             return {"error": f"Ticket {ticket_id} not found"}
 
         severity = result[0].lower() if result[0] else "low"
-        sla_hours = SLA_HOURS_DICT.get(severity, 72)
+        from routes.settings import get_setting
+        sla_hours = float(get_setting(f"SLA_{severity.upper()}_HOURS", 72 if severity == "low" else 48 if severity == "medium" else 24 if severity == "high" else 4))
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -397,7 +399,8 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
 
             if ticket_data:
                 # Calculate the correct breach_time based on sla_start_time
-                hours = SLA_HOURS_DICT.get(ticket_data["severity"].lower(), 72)
+                from routes.settings import get_setting
+                hours = float(get_setting(f"SLA_{ticket_data['severity'].lower().upper()}_HOURS", 72 if ticket_data["severity"].lower() == "low" else 48 if ticket_data["severity"].lower() == "medium" else 24 if ticket_data["severity"].lower() == "high" else 4))
                 actual_breach_time = ticket_data["sla_start_time"] + timedelta(
                     hours=hours
                 )
