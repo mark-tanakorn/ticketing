@@ -42,3 +42,22 @@ export interface Fixer {
   phone: string;
   department: string;
 }
+
+export interface Setting {
+  value: any;
+  description: string;
+  category: string;
+  data_type: string;
+}
+
+export interface Asset {
+  id: number;
+  date: string;
+  created_by: string;
+  action: string;
+  item: string;
+  serial_number?: string;
+  target: string;
+  checked_out?: boolean;
+  checked_out_time?: string;
+}

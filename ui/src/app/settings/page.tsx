@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-interface Setting {
-  value: any;
-  description: string;
-  category: string;
-  data_type: string;
-}
+import { Setting } from "../types";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, Setting>>({});

@@ -622,7 +622,7 @@ async def create_asset(asset: dict, current_user: dict = Depends(get_current_use
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        checked_out_value = False if asset.get("action") == "Check In" else None
+        checked_out_value = False if asset.get("action") == "Checkout" else None
 
         cursor.execute(
             """

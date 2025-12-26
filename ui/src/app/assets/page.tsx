@@ -2,18 +2,33 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Select from "react-select";
+import { Asset } from "../types";
 
-interface Asset {
-  id: number;
-  date: string;
-  created_by: string;
-  action: string;
-  item: string;
-  serial_number?: string;
-  target: string;
-  checked_out?: boolean;
-  checked_out_time?: string;
-}
+// Action color mapping
+const getActionColor = (action: string) => {
+  switch (action.toLowerCase()) {
+    case "checkin":
+      return "#AAAAAA"; // grey
+    case "checkout":
+      return "#4CBB17"; // green
+    case "transfer":
+      return "#8884d8"; // purple
+    case "maintenance":
+      return "#E60000"; // red
+    default:
+      return "#000000"; // black
+  }
+};
+
+// Action formatter for display
+const formatAction = (action: string) => {
+  switch (action.toLowerCase()) {
+    case "checkin":
+      return "Checked In";
+    default:
+      return action;
+  }
+};
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -240,7 +255,7 @@ export default function AssetsPage() {
         checked_out_time: checkoutTime,
       });
 
-      // Then, create the Check Out entry
+      // Then, create the Checkin entry
       const response = await fetch("http://localhost:8000/assets", {
         method: "POST",
         headers: {
@@ -248,7 +263,7 @@ export default function AssetsPage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          action: "Check Out",
+          action: "Checkin",
           item: selectedAsset.item,
           serial_number: selectedAsset.serial_number || "",
           target: selectedAsset.target,
@@ -453,7 +468,12 @@ export default function AssetsPage() {
                       })()}
                     </td>
                     <td className="px-4 py-2 truncate">{asset.created_by}</td>
-                    <td className="px-4 py-2 truncate">{asset.action}</td>
+                    <td
+                      className="px-4 py-2 truncate"
+                      style={{ color: getActionColor(asset.action) }}
+                    >
+                      {formatAction(asset.action)}
+                    </td>
                     <td className="px-4 py-2 truncate">{asset.item}</td>
                     <td className="px-4 py-2 truncate">
                       {asset.serial_number || ""}
@@ -488,7 +508,7 @@ export default function AssetsPage() {
                     </label>
                     <Select
                       options={[
-                        { value: "Check In", label: "Check In" },
+                        { value: "Checkout", label: "Checkout" },
                         { value: "Transfer", label: "Transfer" },
                         { value: "Maintenance", label: "Maintenance" },
                       ]}
@@ -603,7 +623,7 @@ export default function AssetsPage() {
                     </label>
                     <Select
                       options={[
-                        { value: "Check In", label: "Check In" },
+                        { value: "Checkout", label: "Checkout" },
                         { value: "Transfer", label: "Transfer" },
                         { value: "Maintenance", label: "Maintenance" },
                       ]}
@@ -692,7 +712,7 @@ export default function AssetsPage() {
                     >
                       Delete
                     </button>
-                    {selectedAsset?.action === "Check In" && (
+                    {selectedAsset?.action === "Checkout" && (
                       <button
                         type="button"
                         onClick={handleCheckout}
@@ -704,7 +724,7 @@ export default function AssetsPage() {
                         }`}
                       >
                         {selectedAsset?.checked_out === true
-                          ? `Checked Out (${
+                          ? `Checked In (${
                               selectedAsset?.checked_out_time
                                 ? (() => {
                                     const date = new Date(
@@ -733,7 +753,7 @@ export default function AssetsPage() {
                                   })()
                                 : "N/A"
                             })`
-                          : "Checkout"}
+                          : "Check In"}
                       </button>
                     )}
                   </div>
