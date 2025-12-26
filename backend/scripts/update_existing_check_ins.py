@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to set checked_out = false for existing 'Checkout' assets.
+Script to set checked_in = false for existing 'Checkout' assets.
 """
 
 import psycopg2
@@ -18,18 +18,18 @@ def get_db_connection():
 
 
 def update_existing_check_ins():
-    """Set checked_out = false for existing 'Checkout' assets"""
+    """Set checked_in = false for existing 'Checkout' assets"""
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        print("Updating existing 'Checkout' assets to checked_out = false...")
+        print("Updating existing 'Checkout' assets to checked_in = false...")
 
         # Update existing Checkout assets
         cursor.execute(
             """
-            UPDATE assets SET checked_out = false WHERE action = 'Checkout' AND checked_out IS NULL;
+            UPDATE assets SET checked_in = false WHERE action = 'Checkout' AND checked_in IS NULL;
         """
         )
 

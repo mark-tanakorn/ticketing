@@ -58,6 +58,6 @@ export interface Asset {
   item: string;
   serial_number?: string;
   target: string;
-  checked_out?: boolean;
-  checked_out_time?: string;
+  checked_in?: boolean;
+  checked_in_time?: string;
 }

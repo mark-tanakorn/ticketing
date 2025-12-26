@@ -229,8 +229,8 @@ def init_database_tables():
                 item VARCHAR(255) NOT NULL,
                 serial_number VARCHAR(255),
                 target VARCHAR(255),
-                checked_out BOOLEAN DEFAULT NULL,
-                checked_out_time TIMESTAMP
+                checked_in BOOLEAN DEFAULT NULL,
+                checked_in_time TIMESTAMP
             );
         """
         )

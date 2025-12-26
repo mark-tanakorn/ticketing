@@ -12,9 +12,9 @@ const getActionColor = (action: string) => {
     case "checkout":
       return "#4CBB17"; // green
     case "transfer":
-      return "#8884d8"; // purple
+      return "#DF00FE"; // purple
     case "maintenance":
-      return "#E60000"; // red
+      return "#45B6FE"; // blue
     default:
       return "#000000"; // black
   }
@@ -36,6 +36,8 @@ export default function AssetsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showUserAssetsModal, setShowUserAssetsModal] = useState(false);
+  const [userAssetsSearch, setUserAssetsSearch] = useState("");
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [formData, setFormData] = useState<{
     action: string;
@@ -221,7 +223,7 @@ export default function AssetsPage() {
     if (!selectedAsset) return;
 
     try {
-      // First, update the original asset to checked_out = true
+      // First, update the original asset to checked_in = true
       const updateResponse = await fetch(
         `http://localhost:8000/assets/${selectedAsset.id}`,
         {
@@ -231,7 +233,7 @@ export default function AssetsPage() {
           },
           credentials: "include",
           body: JSON.stringify({
-            checked_out: true,
+            checked_in: true,
           }),
         }
       );
@@ -251,8 +253,8 @@ export default function AssetsPage() {
       });
       setSelectedAsset({
         ...selectedAsset,
-        checked_out: true,
-        checked_out_time: checkoutTime,
+        checked_in: true,
+        checked_in_time: checkoutTime,
       });
 
       // Then, create the Checkin entry
@@ -418,12 +420,20 @@ export default function AssetsPage() {
       <div className="flex-1 p-8">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Asset Management</h1>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            Create Asset
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setShowUserAssetsModal(true)}
+              className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              User Assets
+            </button>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Create Asset
+            </button>
+          </div>
         </div>
 
         {/* Assets Table */}
@@ -431,7 +441,7 @@ export default function AssetsPage() {
           <div className="p-3 bg-gray-100">
             <h2 className="text-xl font-semibold">All Assets</h2>
           </div>
-          <div className="overflow-x-auto max-h-[calc(100vh-490px)] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
             <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>
@@ -445,13 +455,13 @@ export default function AssetsPage() {
                 </tr>
               </thead>
               <tbody>
-                {assets.map((asset) => (
+                {assets.map((asset, index) => (
                   <tr
                     key={asset.id}
                     className="border-t hover:bg-gray-50 cursor-pointer"
                     onClick={() => handleRowClick(asset)}
                   >
-                    <td className="px-4 py-2 truncate">{asset.id}</td>
+                    <td className="px-4 py-2 truncate">{index + 1}</td>
                     <td className="px-4 py-2 truncate">
                       {(() => {
                         const date = new Date(asset.date);
@@ -716,19 +726,19 @@ export default function AssetsPage() {
                       <button
                         type="button"
                         onClick={handleCheckout}
-                        disabled={selectedAsset?.checked_out === true}
+                        disabled={selectedAsset?.checked_in === true}
                         className={`px-4 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                          selectedAsset?.checked_out === true
+                          selectedAsset?.checked_in === true
                             ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                             : "bg-green-600 text-white hover:bg-green-700"
                         }`}
                       >
-                        {selectedAsset?.checked_out === true
+                        {selectedAsset?.checked_in === true
                           ? `Checked In (${
-                              selectedAsset?.checked_out_time
+                              selectedAsset?.checked_in_time
                                 ? (() => {
                                     const date = new Date(
-                                      selectedAsset.checked_out_time
+                                      selectedAsset.checked_in_time
                                     );
                                     const dateStr = date.toLocaleDateString(
                                       "en-GB",
@@ -779,6 +789,95 @@ export default function AssetsPage() {
                   </div>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* User Assets Modal */}
+        {showUserAssetsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">User Assets</h2>
+                <button
+                  onClick={() => {
+                    setShowUserAssetsModal(false);
+                    setUserAssetsSearch("");
+                  }}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Search by target name..."
+                  value={userAssetsSearch}
+                  onChange={(e) => setUserAssetsSearch(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+
+              {/* Filtered Assets Table */}
+              <div className="bg-gray-50 rounded-lg overflow-hidden">
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full table-fixed">
+                    <thead className="bg-gray-200 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2 text-left w-1/4">Target</th>
+                        <th className="px-4 py-2 text-left w-1/4">Item</th>
+                        <th className="px-4 py-2 text-left w-1/4">Serial Number</th>
+                        <th className="px-4 py-2 text-left w-1/4">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assets
+                        .filter((asset) =>
+                          asset.target
+                            .toLowerCase()
+                            .includes(userAssetsSearch.toLowerCase()) &&
+                          asset.action.toLowerCase() === "checkout" &&
+                          asset.checked_in === false
+                        )
+                        .map((asset, index) => (
+                          <tr key={asset.id} className="border-t border-gray-200">
+                            <td className="px-4 py-2 truncate">{asset.target}</td>
+                            <td className="px-4 py-2 truncate">{asset.item}</td>
+                            <td className="px-4 py-2 truncate">
+                              {asset.serial_number || ""}
+                            </td>
+                            <td className="px-4 py-2 truncate">
+                              {new Date(asset.date).toLocaleDateString("en-GB", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "2-digit",
+                              })} {new Date(asset.date).toLocaleTimeString("en-GB", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                                hour12: false,
+                              })}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                {assets.filter((asset) =>
+                  asset.target
+                    .toLowerCase()
+                    .includes(userAssetsSearch.toLowerCase()) &&
+                  asset.action.toLowerCase() === "checkout" &&
+                  asset.checked_in === false
+                ).length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No checked out assets found matching "{userAssetsSearch}"
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -1,3 +1,9 @@
+// WARNING: This file manages ENGINEERS.
+// Despite the variable names and some terminology still using "fixers", this component
+// handles engineers only. The backend endpoint is /fixers but it returns engineers.
+// Variable names like "fixers", "setFixers", "fetchFixers" should be read as "engineers"
+// in this context. This naming inconsistency exists due to historical code evolution.
+
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -381,7 +387,7 @@ export default function Fixers() {
           <div className="p-3 bg-gray-100">
             <h2 className="text-xl font-semibold">All Fixers</h2>
           </div>
-          <div className="overflow-x-auto max-h-[calc(100vh-490px)] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
             <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>

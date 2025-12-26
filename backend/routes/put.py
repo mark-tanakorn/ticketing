@@ -261,12 +261,12 @@ async def update_asset(
         if "target" in asset:
             update_fields.append("target = %s")
             values.append(asset["target"])
-        if "checked_out" in asset:
-            update_fields.append("checked_out = %s")
-            values.append(asset["checked_out"])
-            # If setting checked_out to true, also set the timestamp
-            if asset["checked_out"] == True:
-                update_fields.append("checked_out_time = %s")
+        if "checked_in" in asset:
+            update_fields.append("checked_in = %s")
+            values.append(asset["checked_in"])
+            # If setting checked_in to true, also set the timestamp
+            if asset["checked_in"] == True:
+                update_fields.append("checked_in_time = %s")
                 values.append(datetime.utcnow() + timedelta(hours=8))
 
         if not update_fields:

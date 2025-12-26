@@ -1,3 +1,9 @@
+// WARNING: This file manages APPROVERS.
+// Despite the variable names and some terminology still using "users", this component
+// handles approvers only. The backend endpoint is /users but it returns approvers.
+// Variable names like "users" should be read as "approvers"
+// in this context. This naming inconsistency exists due to historical code evolution.
+
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -296,16 +302,16 @@ export default function Users() {
   // Handle logout
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:8000/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
+      await fetch("http://localhost:8000/auth/logout", {
+        method: "POST",
+        credentials: "include",
       });
       // Redirect to login
-      window.location.href = '/login';
+      window.location.href = "/login";
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
       // Still redirect even if logout fails
-      window.location.href = '/login';
+      window.location.href = "/login";
     }
   };
 
@@ -371,7 +377,7 @@ export default function Users() {
               Logout
             </button>
           </li>
-          </ul>
+        </ul>
       </div>
 
       {/* Main Content */}
@@ -391,7 +397,7 @@ export default function Users() {
           <div className="p-3 bg-gray-100">
             <h2 className="text-xl font-semibold">All Users</h2>
           </div>
-          <div className="overflow-x-auto max-h-[calc(100vh-490px)] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
             <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>

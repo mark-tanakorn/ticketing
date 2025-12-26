@@ -622,11 +622,11 @@ async def create_asset(asset: dict, current_user: dict = Depends(get_current_use
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        checked_out_value = False if asset.get("action") == "Checkout" else None
+        checked_in_value = False if asset.get("action") == "Checkout" else None
 
         cursor.execute(
             """
-            INSERT INTO assets (date, created_by, action, item, serial_number, target, checked_out)
+            INSERT INTO assets (date, created_by, action, item, serial_number, target, checked_in)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """,
             (
@@ -636,7 +636,7 @@ async def create_asset(asset: dict, current_user: dict = Depends(get_current_use
                 asset.get("item"),
                 asset.get("serial_number"),
                 asset.get("target"),
-                checked_out_value,
+                checked_in_value,
             ),
         )
         conn.commit()
