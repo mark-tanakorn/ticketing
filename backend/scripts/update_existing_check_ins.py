@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""
+Script to set checked_out = false for existing 'Check In' assets.
+"""
+
+import psycopg2
+
+
+def get_db_connection():
+    """Get database connection - same as in main.py"""
+    return psycopg2.connect(
+        host="localhost",
+        database="ticketing_db",
+        user="ticketing_user",
+        password="mysecretpassword",
+        port=5432,
+    )
+
+
+def update_existing_check_ins():
+    """Set checked_out = false for existing 'Check In' assets"""
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        print("Updating existing 'Check In' assets to checked_out = false...")
+
+        # Update existing Check In assets
+        cursor.execute(
+            """
+            UPDATE assets SET checked_out = false WHERE action = 'Check In' AND checked_out IS NULL;
+        """
+        )
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        print("Existing 'Check In' assets updated successfully!")
+
+    except Exception as e:
+        print(f"Error updating assets: {e}")
+
+
+if __name__ == "__main__":
+    update_existing_check_ins()
