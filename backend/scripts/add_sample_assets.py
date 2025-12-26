@@ -48,7 +48,7 @@ def generate_random_target():
 
 def generate_random_action():
     """Generate a random action from checkout, transfer, maintenance"""
-    actions = ["checkout", "transfer", "maintenance"]
+    actions = ["Checkout", "Transfer", "Maintenance"]
     return random.choice(actions)
 
 

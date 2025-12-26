@@ -2,11 +2,60 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Select from "react-select";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+} from "recharts";
 import { Asset } from "../types";
+
+// Custom legend component for charts
+const CustomLegend = ({
+  payload,
+  order,
+}: {
+  payload?: readonly any[];
+  order: string[];
+}) => {
+  const sortedPayload = (payload || [])
+    .slice()
+    .sort((a, b) => order.indexOf(a.value) - order.indexOf(b.value));
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+      }}
+    >
+      {sortedPayload.map((entry, index) => (
+        <div
+          key={`legend-${index}`}
+          style={{ display: "flex", alignItems: "center", marginBottom: 4 }}
+        >
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              backgroundColor: entry.color,
+              borderRadius: "50%",
+              marginRight: 8,
+            }}
+          ></div>
+          <span style={{ fontSize: "13px" }}>{entry.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 // Action color mapping
 const getActionColor = (action: string) => {
   switch (action.toLowerCase()) {
+    case "checked in":
     case "checkin":
       return "#AAAAAA"; // grey
     case "checkout":
@@ -38,6 +87,7 @@ export default function AssetsPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showUserAssetsModal, setShowUserAssetsModal] = useState(false);
   const [userAssetsSearch, setUserAssetsSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [formData, setFormData] = useState<{
     action: string;
@@ -98,6 +148,44 @@ export default function AssetsPage() {
       .then((data) => setUser(data))
       .catch(() => setUser(null));
   }, []);
+
+  // Memoized chart data for analytics
+  const chartData = useMemo(() => {
+    if (!assets || !assets.length)
+      return {
+        actions: [],
+        checkedOutCount: 0,
+        uniqueTargetsCount: 0,
+        maintenanceCount: 0,
+      };
+
+    // Action counts
+    const actionCount: { [key: string]: number } = {};
+    assets.forEach((asset) => {
+      actionCount[asset.action] = (actionCount[asset.action] || 0) + 1;
+    });
+
+    const actions = Object.entries(actionCount)
+      .map(([name, value]) => ({ name: formatAction(name), value }))
+      .sort((a, b) => b.value - a.value);
+
+    // Count of checked out assets (checkout action and checked_in = false)
+    const checkedOutCount = assets.filter(
+      (asset) =>
+        asset.action.toLowerCase() === "checkout" && asset.checked_in === false
+    ).length;
+
+    // Number of unique targets
+    const uniqueTargetsCount = new Set(assets.map((asset) => asset.target))
+      .size;
+
+    // Number of assets with action "maintenance"
+    const maintenanceCount = assets.filter(
+      (asset) => asset.action.toLowerCase() === "maintenance"
+    ).length;
+
+    return { actions, checkedOutCount, uniqueTargetsCount, maintenanceCount };
+  }, [assets]);
 
   // Function to fetch assets from backend
   const fetchAssets = async () => {
@@ -436,12 +524,90 @@ export default function AssetsPage() {
           </div>
         </div>
 
+        {/* Cards with Charts */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Checked Out Assets Count */}
+          <div className="bg-white p-6 rounded-lg shadow-md md:col-span-1 min-h-[200px] flex flex-col justify-center">
+            <div className="text-center">
+              <div className="text-8xl font-bold" style={{ color: "#4CBB17" }}>
+                {chartData.checkedOutCount}
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Checkout Assets</h3>
+            </div>
+          </div>
+
+          {/* Maintenance Assets Count */}
+          <div className="bg-white p-6 rounded-lg shadow-md md:col-span-1 min-h-[200px] flex flex-col justify-center">
+            <div className="text-center">
+              <div className="text-8xl font-bold" style={{ color: "#45B6FE" }}>
+                {chartData.maintenanceCount}
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Maintenance Assets</h3>
+            </div>
+          </div>
+
+          {/* Unique Targets Count */}
+          <div className="bg-white p-6 rounded-lg shadow-md md:col-span-1 min-h-[200px] flex flex-col justify-center">
+            <div className="text-center">
+              <div className="text-8xl font-bold text-red-600">
+                {chartData.uniqueTargetsCount}
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Unique Users</h3>
+            </div>
+          </div>
+
+          {/* Actions Chart */}
+          <div className="bg-white p-6 rounded-lg shadow-md md:col-span-1">
+            <h3 className="text-lg font-semibold mb-2 text-center">
+              Assets by Action
+            </h3>
+            <ResponsiveContainer width="100%" height={140}>
+              <PieChart>
+                <Pie
+                  data={chartData.actions}
+                  cx="55%"
+                  cy="50%"
+                  outerRadius={70}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {chartData.actions.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={getActionColor(entry.name)}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip position={{ x: 20, y: 5 }} />
+                <Legend
+                  content={(props) => (
+                    <CustomLegend
+                      {...props}
+                      order={[
+                        "Checked Out",
+                        "Transfer",
+                        "Maintenance",
+                        "Checked In",
+                      ]}
+                    />
+                  )}
+                  layout="vertical"
+                  verticalAlign="middle"
+                  align="right"
+                  iconType="circle"
+                  wrapperStyle={{ transform: "translateX(-10px)" }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
         {/* Assets Table */}
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
           <div className="p-3 bg-gray-100">
             <h2 className="text-xl font-semibold">All Assets</h2>
           </div>
-          <div className="overflow-x-auto max-h-[calc(100vh-180px)] overflow-y-auto">
+          <div className="overflow-x-auto max-h-[calc(100vh-440px)] overflow-y-auto">
             <table className="w-full table-fixed">
               <thead className="bg-gray-200 sticky top-0">
                 <tr>
@@ -645,12 +811,7 @@ export default function AssetsPage() {
                             }
                           : null
                       }
-                      onChange={(selected) =>
-                        setEditFormData({
-                          ...editFormData,
-                          action: selected ? selected.value : "",
-                        })
-                      }
+                      isDisabled={true}
                       placeholder="Select Action"
                       maxMenuHeight={120}
                       styles={{
@@ -661,6 +822,8 @@ export default function AssetsPage() {
                           padding: "0.125rem",
                           fontSize: "0.875rem",
                           minHeight: "2.5rem",
+                          backgroundColor: "#f9fafb",
+                          opacity: 0.6,
                         }),
                         menu: (provided) => ({
                           ...provided,
@@ -794,15 +957,16 @@ export default function AssetsPage() {
         )}
 
         {/* User Assets Modal */}
-        {showUserAssetsModal && (
+        {showUserAssetsModal && !selectedUser && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4 h-96">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold">User Assets</h2>
                 <button
                   onClick={() => {
                     setShowUserAssetsModal(false);
                     setUserAssetsSearch("");
+                    setSelectedUser(null);
                   }}
                   className="text-gray-500 hover:text-gray-700 text-2xl"
                 >
@@ -821,62 +985,159 @@ export default function AssetsPage() {
                 />
               </div>
 
-              {/* Filtered Assets Table */}
+              {/* Search Results - Clickable Names */}
+              <div className="max-h-60 overflow-y-auto">
+                {(() => {
+                  const uniqueUsers = [
+                    ...new Set(
+                      assets
+                        .filter(
+                          (asset) =>
+                            asset.action.toLowerCase() === "checkout" &&
+                            asset.checked_in === false &&
+                            asset.target
+                              .toLowerCase()
+                              .includes(userAssetsSearch.toLowerCase())
+                        )
+                        .map((asset) => asset.target)
+                    ),
+                  ];
+
+                  return uniqueUsers.length > 0 ? (
+                    <div className="space-y-2">
+                      {uniqueUsers.map((userName) => (
+                        <div
+                          key={userName}
+                          onClick={() => setSelectedUser(userName)}
+                          className="p-3 bg-gray-50 hover:bg-gray-100 rounded-md cursor-pointer border border-gray-200 transition-colors"
+                        >
+                          <div className="font-medium text-gray-900">
+                            {userName}
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            {
+                              assets.filter(
+                                (asset) =>
+                                  asset.target === userName &&
+                                  asset.action.toLowerCase() === "checkout" &&
+                                  asset.checked_in === false
+                              ).length
+                            }{" "}
+                            checked out asset(s)
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : userAssetsSearch ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No users found matching "{userAssetsSearch}"
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      Start typing to search for users...
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* User Assets Details Modal */}
+        {showUserAssetsModal && selectedUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold">
+                  Assets for {selectedUser}
+                </h2>
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {/* User's Assets Table */}
               <div className="bg-gray-50 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto max-h-96">
                   <table className="w-full table-fixed">
                     <thead className="bg-gray-200 sticky top-0">
                       <tr>
-                        <th className="px-4 py-2 text-left w-1/4">Target</th>
-                        <th className="px-4 py-2 text-left w-1/4">Item</th>
-                        <th className="px-4 py-2 text-left w-1/4">Serial Number</th>
-                        <th className="px-4 py-2 text-left w-1/4">Date</th>
+                        <th className="px-4 py-2 text-left w-1/5">Item</th>
+                        <th className="px-4 py-2 text-left w-1/5">
+                          Serial Number
+                        </th>
+                        <th className="px-4 py-2 text-left w-1/5">
+                          Date Checked Out
+                        </th>
+                        <th className="px-4 py-2 text-left w-1/5">
+                          Created By
+                        </th>
+                        <th className="px-4 py-2 text-left w-1/5">Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {assets
-                        .filter((asset) =>
-                          asset.target
-                            .toLowerCase()
-                            .includes(userAssetsSearch.toLowerCase()) &&
-                          asset.action.toLowerCase() === "checkout" &&
-                          asset.checked_in === false
+                        .filter(
+                          (asset) =>
+                            asset.target === selectedUser &&
+                            asset.action.toLowerCase() === "checkout" &&
+                            asset.checked_in === false
                         )
                         .map((asset, index) => (
-                          <tr key={asset.id} className="border-t border-gray-200">
-                            <td className="px-4 py-2 truncate">{asset.target}</td>
-                            <td className="px-4 py-2 truncate">{asset.item}</td>
-                            <td className="px-4 py-2 truncate">
-                              {asset.serial_number || ""}
+                          <tr
+                            key={asset.id}
+                            className="border-t border-gray-200 hover:bg-gray-100"
+                          >
+                            <td className="px-4 py-2 truncate font-medium">
+                              {asset.item}
+                            </td>
+                            <td className="px-4 py-2 truncate text-gray-600">
+                              {asset.serial_number || "N/A"}
                             </td>
                             <td className="px-4 py-2 truncate">
-                              {new Date(asset.date).toLocaleDateString("en-GB", {
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "2-digit",
-                              })} {new Date(asset.date).toLocaleTimeString("en-GB", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                                hour12: false,
-                              })}
+                              {new Date(asset.date).toLocaleDateString(
+                                "en-GB",
+                                {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                  year: "2-digit",
+                                }
+                              )}{" "}
+                              {new Date(asset.date).toLocaleTimeString(
+                                "en-GB",
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                  hour12: false,
+                                }
+                              )}
+                            </td>
+                            <td className="px-4 py-2 truncate">
+                              {asset.created_by}
+                            </td>
+                            <td className="px-4 py-2 truncate">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Checked Out
+                              </span>
                             </td>
                           </tr>
                         ))}
                     </tbody>
                   </table>
                 </div>
-                {assets.filter((asset) =>
-                  asset.target
-                    .toLowerCase()
-                    .includes(userAssetsSearch.toLowerCase()) &&
-                  asset.action.toLowerCase() === "checkout" &&
-                  asset.checked_in === false
-                ).length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No checked out assets found matching "{userAssetsSearch}"
-                  </div>
-                )}
+              </div>
+
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={() => setSelectedUser(null)}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
