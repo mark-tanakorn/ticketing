@@ -20,12 +20,15 @@ async def get_tickets(current_user: dict = Depends(get_current_user)):
     try:
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
+
         if current_user["role"] in ["admin", "auditor"]:
             cursor.execute("SELECT * FROM tickets ORDER BY date_created DESC")
         else:
-            cursor.execute("SELECT * FROM tickets WHERE user_id = %s ORDER BY date_created DESC", (current_user["user_id"],))
-        
+            cursor.execute(
+                "SELECT * FROM tickets WHERE user_id = %s ORDER BY date_created DESC",
+                (current_user["user_id"],),
+            )
+
         tickets = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -76,7 +79,8 @@ async def get_tickets(current_user: dict = Depends(get_current_user)):
                 if (
                     not ticket.get("pre_breach_triggered", False)
                     and ticket["status"] not in ["closed", "sla_breached"]
-                    and current_time >= breach_time - timedelta(seconds=PRE_BREACH_SECONDS)
+                    and current_time
+                    >= breach_time - timedelta(seconds=PRE_BREACH_SECONDS)
                 ):
                     sla_prebreached_payload = {
                         "ticket_id": ticket["id"],
@@ -219,5 +223,23 @@ async def get_all_login_users():
         cursor.close()
         conn.close()
         return {"login": login_users}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# Get all assets
+@router.get("/assets")
+async def get_assets(current_user: dict = Depends(get_current_user)):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+        cursor.execute("SELECT * FROM assets ORDER BY date DESC")
+
+        assets = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        return {"assets": assets}
     except Exception as e:
         return {"error": str(e)}

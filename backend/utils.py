@@ -218,6 +218,23 @@ def init_database_tables():
         """
         )
 
+        # Create assets table only if it doesn't exist
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS assets (
+                id SERIAL PRIMARY KEY,
+                date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by VARCHAR(255) NOT NULL,
+                action VARCHAR(100) NOT NULL,
+                item VARCHAR(255) NOT NULL,
+                serial_number VARCHAR(255),
+                target VARCHAR(255),
+                checked_out BOOLEAN DEFAULT NULL,
+                checked_out_time TIMESTAMP
+            );
+        """
+        )
+
         conn.commit()
         cursor.close()
         conn.close()

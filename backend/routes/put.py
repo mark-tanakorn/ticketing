@@ -7,7 +7,9 @@ router = APIRouter()
 
 # Update a ticket
 @router.put("/tickets/{ticket_id}")
-async def update_ticket(ticket_id: int, ticket: dict, current_user: dict = Depends(get_current_user)):
+async def update_ticket(
+    ticket_id: int, ticket: dict, current_user: dict = Depends(get_current_user)
+):
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -209,6 +211,7 @@ async def update_login_user(user_id: int, user: dict):
         values = [user.get("name"), user.get("email"), user.get("department")]
         if user.get("password"):
             from auth_utils import hash_password
+
             hashed_password = hash_password(user.get("password"))
             update_fields += ", password = %s"
             values.append(hashed_password)
@@ -227,5 +230,56 @@ async def update_login_user(user_id: int, user: dict):
         cursor.close()
         conn.close()
         return {"message": "User updated successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# Update an asset
+@router.put("/assets/{asset_id}")
+async def update_asset(
+    asset_id: int, asset: dict, current_user: dict = Depends(get_current_user)
+):
+    try:
+        from datetime import datetime, timedelta
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Build dynamic update query based on provided fields
+        update_fields = []
+        values = []
+
+        if "action" in asset:
+            update_fields.append("action = %s")
+            values.append(asset["action"])
+        if "item" in asset:
+            update_fields.append("item = %s")
+            values.append(asset["item"])
+        if "serial_number" in asset:
+            update_fields.append("serial_number = %s")
+            values.append(asset["serial_number"])
+        if "target" in asset:
+            update_fields.append("target = %s")
+            values.append(asset["target"])
+        if "checked_out" in asset:
+            update_fields.append("checked_out = %s")
+            values.append(asset["checked_out"])
+            # If setting checked_out to true, also set the timestamp
+            if asset["checked_out"] == True:
+                update_fields.append("checked_out_time = %s")
+                values.append(datetime.utcnow() + timedelta(hours=8))
+
+        if not update_fields:
+            return {"error": "No fields to update"}
+
+        query = f"UPDATE assets SET {', '.join(update_fields)} WHERE id = %s"
+        values.append(asset_id)
+
+        cursor.execute(query, values)
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return {"message": "Asset updated successfully"}
     except Exception as e:
         return {"error": str(e)}

@@ -76,7 +76,21 @@ async def create_ticket(ticket: dict, current_user: dict = Depends(get_current_u
         severity = ticket.get("severity", "").lower()
         if severity:
             from routes.settings import get_setting
-            sla_hours = float(get_setting(f"SLA_{severity.upper()}_HOURS", 72 if severity == "low" else 48 if severity == "medium" else 24 if severity == "high" else 4))
+
+            sla_hours = float(
+                get_setting(
+                    f"SLA_{severity.upper()}_HOURS",
+                    (
+                        72
+                        if severity == "low"
+                        else (
+                            48
+                            if severity == "medium"
+                            else 24 if severity == "high" else 4
+                        )
+                    ),
+                )
+            )
             sla_breached_at = current_time + timedelta(hours=sla_hours)
             conn = get_db_connection()
             cursor = conn.cursor()
@@ -273,7 +287,8 @@ async def create_login_user(user: dict):
 
         # Check if username already exists
         cursor.execute(
-            "SELECT user_id FROM login WHERE LOWER(username) = LOWER(%s)", (user.get("name"),)
+            "SELECT user_id FROM login WHERE LOWER(username) = LOWER(%s)",
+            (user.get("name"),),
         )
         if cursor.fetchone():
             cursor.close()
@@ -282,7 +297,8 @@ async def create_login_user(user: dict):
 
         # Check if email already exists
         cursor.execute(
-            "SELECT user_id FROM login WHERE LOWER(email) = LOWER(%s)", (user.get("email"),)
+            "SELECT user_id FROM login WHERE LOWER(email) = LOWER(%s)",
+            (user.get("email"),),
         )
         if cursor.fetchone():
             cursor.close()
@@ -291,6 +307,7 @@ async def create_login_user(user: dict):
 
         # Hash password
         from auth_utils import hash_password
+
         hashed_password = hash_password(user.get("password"))
 
         cursor.execute(
@@ -349,7 +366,17 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
 
         severity = result[0].lower() if result[0] else "low"
         from routes.settings import get_setting
-        sla_hours = float(get_setting(f"SLA_{severity.upper()}_HOURS", 72 if severity == "low" else 48 if severity == "medium" else 24 if severity == "high" else 4))
+
+        sla_hours = float(
+            get_setting(
+                f"SLA_{severity.upper()}_HOURS",
+                (
+                    72
+                    if severity == "low"
+                    else 48 if severity == "medium" else 24 if severity == "high" else 4
+                ),
+            )
+        )
 
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -400,7 +427,25 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
             if ticket_data:
                 # Calculate the correct breach_time based on sla_start_time
                 from routes.settings import get_setting
-                hours = float(get_setting(f"SLA_{ticket_data['severity'].lower().upper()}_HOURS", 72 if ticket_data["severity"].lower() == "low" else 48 if ticket_data["severity"].lower() == "medium" else 24 if ticket_data["severity"].lower() == "high" else 4))
+
+                hours = float(
+                    get_setting(
+                        f"SLA_{ticket_data['severity'].lower().upper()}_HOURS",
+                        (
+                            72
+                            if ticket_data["severity"].lower() == "low"
+                            else (
+                                48
+                                if ticket_data["severity"].lower() == "medium"
+                                else (
+                                    24
+                                    if ticket_data["severity"].lower() == "high"
+                                    else 4
+                                )
+                            )
+                        ),
+                    )
+                )
                 actual_breach_time = ticket_data["sla_start_time"] + timedelta(
                     hours=hours
                 )
@@ -454,7 +499,9 @@ async def update_ticket_approval(ticket_id: int, payload: TicketApprovalPayload)
                     "fixer_phone": fixer_phone,
                     "fixer_email": fixer_email,
                     "attachment_upload": ticket_data["attachment_upload"],
-                    "approver_decided_at": ticket_data["approver_decided_at"].strftime("%d/%m/%y %H:%M"),
+                    "approver_decided_at": ticket_data["approver_decided_at"].strftime(
+                        "%d/%m/%y %H:%M"
+                    ),
                 }
 
                 # Trigger the updated workflow
@@ -561,5 +608,41 @@ async def update_ticket_status(
         }
     except HTTPException:
         raise
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# Create a new asset
+@router.post("/assets")
+async def create_asset(asset: dict, current_user: dict = Depends(get_current_user)):
+    try:
+        # Get current time in Singapore timezone (UTC+8)
+        current_time = datetime.utcnow() + timedelta(hours=8)
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        checked_out_value = False if asset.get("action") == "Check In" else None
+
+        cursor.execute(
+            """
+            INSERT INTO assets (date, created_by, action, item, serial_number, target, checked_out)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """,
+            (
+                current_time,
+                asset.get("created_by"),
+                asset.get("action"),
+                asset.get("item"),
+                asset.get("serial_number"),
+                asset.get("target"),
+                checked_out_value,
+            ),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return {"message": "Asset created successfully"}
     except Exception as e:
         return {"error": str(e)}

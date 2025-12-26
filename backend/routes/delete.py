@@ -77,7 +77,9 @@ async def delete_login_user(user_id: int):
             # Count how many admins are left
             cursor.execute("SELECT COUNT(*) FROM login WHERE role = 'admin'")
             admin_count = cursor.fetchone()[0]
-            print(f"Admin count: {admin_count}, deleting user ID: {user_id}, role: {role}")
+            print(
+                f"Admin count: {admin_count}, deleting user ID: {user_id}, role: {role}"
+            )
             if admin_count <= 1:
                 print(f"Blocked attempt to delete the last admin user (ID: {user_id})")
                 cursor.close()
@@ -89,5 +91,22 @@ async def delete_login_user(user_id: int):
         cursor.close()
         conn.close()
         return {"message": "User deleted successfully"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# Delete an asset
+@router.delete("/assets/{asset_id}")
+async def delete_asset(asset_id: int, current_user: dict = Depends(get_current_user)):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("DELETE FROM assets WHERE id = %s", (asset_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return {"message": "Asset deleted successfully"}
     except Exception as e:
         return {"error": str(e)}
