@@ -874,6 +874,11 @@ export default function Home() {
                 </a>
               </li>
               <li className="mb-2">
+                <a href="/assets" className="hover:text-gray-300">
+                  Asset Management
+                </a>
+              </li>
+              <li className="mb-2">
                 <a href="/settings" className="hover:text-gray-300">
                   Settings
                 </a>

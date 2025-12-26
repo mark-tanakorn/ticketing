@@ -158,6 +158,11 @@ export default function SettingsPage() {
               </a>
             </li>
             <li className="mb-2">
+              <a href="/assets" className="hover:text-gray-300">
+                Asset Management
+              </a>
+            </li>
+            <li className="mb-2">
               <a href="/settings" className="text-blue-300 font-semibold">
                 Settings
               </a>
@@ -174,16 +179,16 @@ export default function SettingsPage() {
   // Handle logout
   const handleLogout = async () => {
     try {
-      await fetch('http://localhost:8000/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
+      await fetch("http://localhost:8000/auth/logout", {
+        method: "POST",
+        credentials: "include",
       });
       // Redirect to login
-      window.location.href = '/login';
+      window.location.href = "/login";
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
       // Still redirect even if logout fails
-      window.location.href = '/login';
+      window.location.href = "/login";
     }
   };
 
@@ -216,6 +221,11 @@ export default function SettingsPage() {
                 </a>
               </li>
               <li className="mb-2">
+                <a href="/assets" className="hover:text-gray-300">
+                  Asset Management
+                </a>
+              </li>
+              <li className="mb-2">
                 <a href="/settings" className="text-blue-300 font-semibold">
                   Settings
                 </a>
@@ -230,7 +240,7 @@ export default function SettingsPage() {
               Logout
             </button>
           </li>
-          </ul>
+        </ul>
       </div>
 
       {/* Main Content */}
@@ -268,10 +278,26 @@ export default function SettingsPage() {
                 </h3>
                 <div className="space-y-3">
                   {[
-                    { key: "SLA_LOW_HOURS", bg: "bg-green-50", text: "text-green-700" },
-                    { key: "SLA_MEDIUM_HOURS", bg: "bg-yellow-50", text: "text-yellow-700" },
-                    { key: "SLA_HIGH_HOURS", bg: "bg-orange-50", text: "text-orange-700" },
-                    { key: "SLA_CRITICAL_HOURS", bg: "bg-red-50", text: "text-red-700" },
+                    {
+                      key: "SLA_LOW_HOURS",
+                      bg: "bg-green-50",
+                      text: "text-green-700",
+                    },
+                    {
+                      key: "SLA_MEDIUM_HOURS",
+                      bg: "bg-yellow-50",
+                      text: "text-yellow-700",
+                    },
+                    {
+                      key: "SLA_HIGH_HOURS",
+                      bg: "bg-orange-50",
+                      text: "text-orange-700",
+                    },
+                    {
+                      key: "SLA_CRITICAL_HOURS",
+                      bg: "bg-red-50",
+                      text: "text-red-700",
+                    },
                   ].map(({ key, bg, text }) => (
                     <div
                       key={key}
@@ -334,7 +360,9 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <h3 className="text-lg font-medium mb-4 mt-9">Communication Mode</h3>
+                <h3 className="text-lg font-medium mb-4 mt-9">
+                  Communication Mode
+                </h3>
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-medium text-blue-700">Mode:</span>
@@ -357,8 +385,7 @@ export default function SettingsPage() {
                   <p className="text-sm text-blue-800">
                     EMAIL uses email workflows
                     <br></br>
-                    WHATSAPP uses WhatsApp
-                    workflows.
+                    WHATSAPP uses WhatsApp workflows.
                   </p>
                 </div>
               </div>
